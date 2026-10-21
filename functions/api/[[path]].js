@@ -9,7 +9,7 @@ const validPin=p=>typeof p==="string"&&/^[0-9]{6}$/.test(p);
 const validName=n=>typeof n==="string"&&/^[a-z0-9._-]{3,30}$/.test(n);
 const clean=(v,n=255)=>typeof v==="string"?v.trim().slice(0,n):"";
 const secureEqual=(a,b)=>{if(!a||!b||a.length!==b.length)return false;let x=0;for(let i=0;i<a.length;i++)x|=a.charCodeAt(i)^b.charCodeAt(i);return x===0};
-async function pinHash(pin,salt,secret){const base=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret+":"+pin),"PBKDF2",false,["deriveBits"]);return hex(await crypto.subtle.deriveBits({name:"PBKDF2",salt:new Uint8Array(salt.match(/.{2}/g).map(x=>parseInt(x,16))),iterations:180000,hash:"SHA-256"},base,256))}
+async function pinHash(pin,salt,secret){const base=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret+":"+pin),"PBKDF2",false,["deriveBits"]);return hex(await crypto.subtle.deriveBits({name:"PBKDF2",salt:new Uint8Array(salt.match(/.{2}/g).map(x=>parseInt(x,16))),iterations:100000,hash:"SHA-256"},base,256))}
 const tokenCookie=req=>(req.headers.get("cookie")||"").split(";").map(s=>s.trim()).find(s=>s.startsWith("enf_session="))?.slice(12)||"";
 const secureOrigin=req=>{const origin=req.headers.get("origin");return origin===new URL(req.url).origin || (!origin&&["same-origin","none"].includes(req.headers.get("sec-fetch-site")))};
 async function input(req){let txt=await req.text();if(txt.length>850000)throw Error("large");let j=JSON.parse(txt);if(!j||typeof j!=="object"||Array.isArray(j))throw Error("invalid");return j}
