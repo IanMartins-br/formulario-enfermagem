@@ -72,7 +72,35 @@ export async function onRequest({request,env}){
  const dup=await db.prepare("SELECT id FROM patients WHERE record_number=?").bind(record).first();if(dup)return reply({error:"Número de prontuário já utilizado."},409);
  const nid=id();await db.prepare("INSERT INTO patients(id,record_number,full_name,birth_date,location,informant,phone_number) VALUES(?,?,?,?,?,?,?)").bind(nid,record,name,birth,clean(b.location,200),clean(b.informant,160),phone).run();await log(db,user.id,"patient_created",nid);return reply({ok:true,id:nid});
  }
- if(path==="/api/visits"&&method==="GET"){const q=new URL(request.url).searchParams.get("patient");let r=q?await db.prepare("SELECT id,patient_id,visit_date,document_json,created_at FROM clinical_visits WHERE patient_id=? ORDER BY visit_date DESC,created_at DESC LIMIT 1500").bind(q).all():await db.prepare("SELECT id,patient_id,visit_date,document_json,created_at FROM clinical_visits ORDER BY visit_date DESC,created_at DESC LIMIT 1500").all();return reply({visits:r.results.map(x=>({id:x.id,patient_id:x.patient_id,created:x.created_at,value:JSON.parse(x.document_json)}))})}
+ if(path==="/api/visits/archived"&&method==="GET"){
+ if(user.role!=="admin")return forbidden();
+ const q=clean(new URL(request.url).searchParams.get("patient"),64);
+ const sql="SELECT id,patient_id,visit_date,deleted_at,deletion_reason,created_at FROM clinical_visits WHERE deleted_at IS NOT NULL"+(q?" AND patient_id=?":"")+" ORDER BY deleted_at DESC LIMIT 500";
+ const result=q?await db.prepare(sql).bind(q).all():await db.prepare(sql).all();
+ return reply({visits:result.results});
+ }
+ if(path==="/api/visits/archive"&&method==="POST"){
+ if(user.role!=="admin")return forbidden();
+ const b=await input(request),visitId=clean(b.id,64),reason=clean(b.reason,300);
+ if(!visitId||reason.length<5)return reply({error:"Selecione um atendimento e informe o motivo da exclusão (mínimo 5 caracteres)."},400);
+ const existing=await db.prepare("SELECT id,deleted_at FROM clinical_visits WHERE id=?").bind(visitId).first();
+ if(!existing)return reply({error:"Atendimento não encontrado."},404);
+ if(existing.deleted_at)return reply({error:"Esse atendimento já foi removido do histórico."},409);
+ const result=await db.prepare("UPDATE clinical_visits SET deleted_at=?,deleted_by=?,deletion_reason=? WHERE id=? AND deleted_at IS NULL").bind(new Date().toISOString(),user.id,reason,visitId).run();
+ if(!result.meta?.changes)return reply({error:"Não foi possível atualizar o atendimento. Atualize o histórico."},409);
+ await log(db,user.id,"visit_archived",visitId);
+ return reply({ok:true,id:visitId,message:"Atendimento retirado do histórico. O administrador pode restaurá-lo."});
+ }
+ if(path==="/api/visits/restore"&&method==="POST"){
+ if(user.role!=="admin")return forbidden();
+ const b=await input(request),visitId=clean(b.id,64);
+ if(!visitId)return reply({error:"Informe o atendimento."},400);
+ const result=await db.prepare("UPDATE clinical_visits SET deleted_at=NULL,deleted_by=NULL,deletion_reason=NULL WHERE id=? AND deleted_at IS NOT NULL").bind(visitId).run();
+ if(!result.meta?.changes)return reply({error:"Atendimento não encontrado na lixeira."},404);
+ await log(db,user.id,"visit_restored",visitId);
+ return reply({ok:true,id:visitId});
+ }
+ if(path==="/api/visits"&&method==="GET"){const q=new URL(request.url).searchParams.get("patient");let r=q?await db.prepare("SELECT id,patient_id,visit_date,document_json,created_at FROM clinical_visits WHERE patient_id=? AND deleted_at IS NULL ORDER BY visit_date DESC,created_at DESC LIMIT 1500").bind(q).all():await db.prepare("SELECT id,patient_id,visit_date,document_json,created_at FROM clinical_visits WHERE deleted_at IS NULL ORDER BY visit_date DESC,created_at DESC LIMIT 1500").all();return reply({visits:r.results.map(x=>({id:x.id,patient_id:x.patient_id,created:x.created_at,value:JSON.parse(x.document_json)}))})}
  if(path==="/api/visits"&&method==="POST"){const b=await input(request),patientId=clean(b.patient_id,64),p=await db.prepare("SELECT id,record_number,full_name,birth_date,location,informant FROM patients WHERE id=?").bind(patientId).first();if(!p)return reply({error:"Paciente não cadastrado."},400);
  if(!b.value||typeof b.value!=="object"||Array.isArray(b.value)||!/^\d{4}-\d{2}-\d{2}$/.test(b.value.date||""))return reply({error:"Atendimento ou data inválida."},400);
  const v=docSafe(b.value);Object.assign(v,{name:p.full_name,record:p.record_number,birth:p.birth_date,location:v.location||p.location||"",informant:v.informant||p.informant||""});
