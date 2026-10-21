@@ -1,36 +1,27 @@
-# Enfermagem — formulário domiciliar
+# Formulário de Enfermagem — modo sem login
 
-Aplicação responsiva em Cloudflare Pages com formulário clínico, cadastro único de pacientes, prontuários separados por paciente e data, histórico, prévia A4 e exportação em PDF.
+Aplicativo web para preencher registros de atendimento domiciliar, visualizar o modelo A4 e imprimir como PDF. Adaptado para iPhone/PWA.
 
-## Produção
+## Como usar
+1. Abra https://formulario-enfermagem.pages.dev — **sem tela de login**.
+2. Em **Pacientes**, crie o cadastro do paciente (nome, data de nascimento e número do prontuário).
+3. Em **Atendimento**, escolha o paciente: dados básicos são preenchidos automaticamente.
+4. Preencha avaliação e evolução. A avaliação de lesões abre apenas quando marcada.
+5. **Visualizar prévia** não salva. **Gerar modelo e salvar no histórico** grava a visita e mostra a prévia.
+6. No **Histórico**, selecione o paciente, abra a data e imprima/guarde o PDF.
+7. Em **Histórico**, exporte um backup JSON periodicamente; em Ajustes, há importação de backup.
 
+## Armazenamento e privacidade
+- **Sem login = somente neste navegador e dispositivo.** Dados ficam em localStorage; não são sincronizados entre PC e iPhone, não são criptografados e podem desaparecer se limpar o navegador. O backup JSON também não é criptografado.
+- O banco D1 permanece provisionado na conta Cloudflare, mas **a API remota foi desabilitada (HTTP 410)** para não permitir acesso público indevido.
+- **Não utilizar dados de pacientes reais** sem implantação de controles de acesso, conformidade LGPD, política de backups e retenção, auditoria e validação clínica/regulatória adequada.
+- O gerador não diagnostica de maneira autônoma; sugestões e prescrições dependem de avaliação e aprovação da enfermeira.
+- Publicar o site não torna os dados locais acessíveis aos administradores do Cloudflare ou GitHub.
+
+## Infraestrutura
+- Repositório: `IanMartins-br/formulario-enfermagem`
+- Cloudflare Pages: `formulario-enfermagem`, conta **Ian pessoal**
 - Site: https://formulario-enfermagem.pages.dev
-- Repositório: IanMartins-br/formulario-enfermagem
-- Cloudflare: **Ian pessoal**
-- Banco: D1 `formulario-enfermagem-db` (binding `DB`)
-- API: Cloudflare Pages Functions em `functions/api/[[path]].js`
-- Sessões: cookie HttpOnly + Secure + SameSite=Strict, validade de 12 horas
-- Senha: derivação PBKDF2-SHA256, login com limitação de tentativas
-- Auditoria: tabela `audit_events` para autenticações e gravações
+- D1: `formulario-enfermagem-db` (não utilizado no modo sem login)
 
-## Primeiro acesso
-
-1. Abra o site e selecione **Primeiro acesso? Ativar conta**.
-2. Informe a chave privada provisionada como `APP_SETUP_KEY` nas variáveis/segredos do projeto Cloudflare.
-3. Escolha o e-mail da responsável e uma senha longa (mínimo 14 caracteres).
-4. Entre e cadastre os pacientes.
-5. Ao criar uma visita, selecione o paciente: nome, nascimento, idade e número do prontuário serão preenchidos.
-6. **Gerar modelo e salvar no histórico** grava no D1 e abre a prévia; **Visualizar prévia** não grava.
-7. Abra **Histórico**, escolha o paciente, depois a data e o registro para imprimir em PDF.
-
-O primeiro acesso só é permitido enquanto a conta inicial não estiver ativada. **Nunca coloque a chave de configuração ou senhas no repositório.**
-
-## Atenção clínica e privacidade
-
-A aplicação é uma implementação inicial protegida por senha, **não um prontuário certificado** e não substitui revisão clínica, assinatura, conformidade legal e avaliação de risco. Antes de uso com dados reais, implementar políticas formais de acesso e retenção, procedimentos de backup/restauração e exclusão, revisão das condições LGPD, e avaliação profissional das hipóteses, planos e registros de enfermagem. O banco D1 armazena dados clínicos sensíveis, por isso o repositório contém somente código e migrações, nunca dados ou credenciais.
-
-Arquivos de backup exportados contêm dados sensíveis e devem ser guardados em armazenamento autorizado e protegido.
-
-## Deploy
-
-Alterações na branch `main` publicam automaticamente pela integração do Cloudflare Pages.
+O projeto é um gerador local de documentos; não é um prontuário eletrônico certificado.
