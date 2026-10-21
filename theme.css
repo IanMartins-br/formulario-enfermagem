@@ -1,0 +1,165 @@
+/* Enfermagem — design system v2, desktop + iPhone */
+:root{--evergreen:#17463a;--evergreen-dark:#12382e;--accent:#1d765d;--mist:#eef5f1;--line:#dce7e1;--ink:#172f27;--muted:#637b70;--paper:#fff;--shadow:0 10px 32px rgba(15,55,39,.045);-webkit-text-size-adjust:100%}
+html{scroll-behavior:smooth}body{color:var(--ink);background:#f4f7f5;line-height:1.48}
+button{transition:background .18s,transform .15s,box-shadow .18s}button:active{transform:translateY(1px)}button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid #78b59a;outline-offset:2px}
+header{background:linear-gradient(115deg,#123a31,#1a5041);min-height:74px;padding-block:14px;border-bottom:1px solid #ffffff1a}
+header strong{font-size:19px;letter-spacing:-.4px}header small{font-size:11px;letter-spacing:.04em;opacity:.72}
+main{grid-template-columns:242px minmax(0,1fr);gap:26px;padding-block:26px}
+main section{min-width:0}
+nav{top:24px;padding:11px;background:#fff;box-shadow:var(--shadow);border-radius:16px;border-color:var(--line)}
+nav button{padding:13px 14px;font-size:13px;display:flex;align-items:center;gap:9px;min-height:45px;border-radius:10px;transition:background .18s}
+nav button.active{background:#e5f1ea;font-weight:730}
+h1{font-weight:760;font-size:27px;letter-spacing:-1px;color:#153d31}
+h2{font-size:16px;font-weight:750;color:#163c31;letter-spacing:-.3px}
+h3{font-size:12px;font-weight:740;letter-spacing:.055em;text-transform:uppercase;color:#497363;margin-top:24px}
+.card{box-shadow:var(--shadow);border-color:var(--line);border-radius:16px;padding:26px}
+.card > h2{display:flex;align-items:center;gap:8px;border-bottom:1px solid #eef2f0;padding-bottom:16px;margin-bottom:22px}
+label{font-size:12px;letter-spacing:.01em;margin-bottom:7px}
+.field{min-width:0}
+input,select,textarea{min-width:0;max-width:100%;font-size:15px;background:#fcfdfc;border-color:#cfddd5;border-radius:10px;padding:12px 13px}
+input[readonly]{background:#f3f7f4;color:#617970;cursor:default}
+textarea{line-height:1.5;min-height:105px}
+button{border-radius:10px;padding:12px 16px;letter-spacing:-.01em}
+button.secondary{background:#e5f0e9}
+button.light{background:white;border-color:#cedfd5}
+.grid{gap:16px 17px}
+.muted{line-height:1.5}
+.alert{background:#fff9eb;color:#795b30;border-color:#efdbae;border-radius:12px;line-height:1.55}
+.alert label{color:inherit}
+.topline{margin-bottom:21px}
+.topline h1{margin-bottom:3px}
+.topline button{white-space:nowrap}
+.actions{gap:9px;margin-top:20px}
+.statgrid{margin-bottom:20px}
+.stat{box-shadow:var(--shadow);border-color:var(--line)}
+.item{border-radius:14px;padding:15px;background:#fff;gap:15px;flex-wrap:wrap}
+.item .actions{margin:0}
+.legend{margin-top:14px}
+.chart{height:185px}
+.document{max-width:800px;background:#fff;color:#1e2e28;font-family:Georgia,"Times New Roman",serif;line-height:1.5}
+.document .doc-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;border-bottom:2px solid #234d3e;padding-bottom:20px;margin-bottom:21px}
+.document .doc-brand{font-family:Arial,sans-serif;text-transform:uppercase;font-size:10px;letter-spacing:.13em;color:#437b63;font-weight:700}
+.document h2{font-family:Arial,sans-serif;text-align:left;margin:7px 0 3px;border:0;font-size:20px;font-weight:750;line-height:1.16;letter-spacing:-.4px;color:#204a3b}
+.document .doc-subtitle{font:11px Arial,sans-serif;color:#658075;margin:0}
+.document .doc-badge{font:700 10px Arial,sans-serif;background:#edf5ef;padding:7px 11px;border-radius:20px;color:#2d6954;white-space:nowrap}
+.document .doc-section{margin:17px 0 0;break-inside:auto}
+.document .doc-section h3{font:700 10.5px Arial,sans-serif;letter-spacing:.09em;color:#2d6752;border-bottom:1px solid #cbdcd2;padding:7px 0;margin:0 0 10px;text-transform:uppercase;break-after:avoid}
+.document .doc-section p{font:12px/1.55 Arial,sans-serif;margin:6px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.document .doc-section p strong{font-weight:730;color:#23392f}
+.document .doc-section:first-of-type p{margin:4px 0}
+.document .doc-footer{font:10px Arial,sans-serif;color:#748479;margin-top:20px;padding-top:8px;border-top:1px solid #e1e9e3}
+.document .doc-signature{margin-top:37px;border-top:1px solid #a7b9ad;padding-top:9px}
+.document .doc-signature p{font:11px/1.5 Arial,sans-serif}
+.doc-preview-frame{background:#e8eeea;border:1px solid #dbe5de;padding:22px;border-radius:14px}
+.doc-preview-frame .document{padding:34px 39px;min-height:840px;box-shadow:0 8px 35px #213c3021}
+.document .doc-patient-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:9px 16px;margin:15px 0;border:1px solid #dbe8de;border-radius:7px;padding:13px}
+.document .doc-patient-grid div{font:12px/1.4 Arial,sans-serif;min-width:0;overflow-wrap:anywhere}
+.document .doc-patient-grid small{display:block;color:#638175;font-size:9px;text-transform:uppercase;font-weight:700;letter-spacing:.08em;margin-bottom:3px}
+.patient-toolbar{display:flex;gap:12px;align-items:end;margin-bottom:20px;flex-wrap:wrap}
+.patient-toolbar .field{flex:1;min-width:190px}
+.patient-toolbar button{white-space:nowrap}
+.patient-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.patient-card{border:1px solid #dce8e0;background:#fff;border-radius:13px;padding:17px;text-align:left;color:#193e31;min-width:0;box-shadow:0 3px 12px #17352408}
+.patient-card strong{display:block;font-size:14px;overflow-wrap:anywhere}
+.patient-card small{display:block;font-size:12px;color:#648074;margin-top:7px}
+.patient-card:hover{background:#f1f8f4;border-color:#a9cdbb}
+.history-back{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.history-group-header{margin:19px 0 10px;font-weight:740;font-size:14px;color:#2e5e4a}
+.record-item{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid #e7eee9;flex-wrap:wrap}
+.record-item:last-child{border-bottom:0}
+.record-item strong{font-size:14px}
+.record-item small{display:block;color:#76867e;margin-top:3px;font-size:12px}
+.record-item .actions{margin:0}
+.action-panel{display:flex;gap:9px;flex-wrap:wrap;position:relative}
+.action-panel button{flex:0 1 auto}
+#previewPage>.actions{margin:0 0 16px}
+#document{width:100%}
+.status-banner{font-size:12px;color:#315e4a;background:#e6f4ea;border:1px solid #c8dfcf;padding:12px 14px;border-radius:12px;margin:12px 0}
+.auth-overlay{position:fixed;inset:0;z-index:10000;background:linear-gradient(135deg,#143d31,#224f3e);display:flex;align-items:center;justify-content:center;padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom))}
+.auth-card{width:min(430px,100%);padding:30px;background:#fff;border-radius:22px;box-shadow:0 20px 80px #0b271c6b}
+.auth-card h1{font-size:26px;margin-bottom:7px}
+.auth-card p{font-size:13px;color:#677d72;margin-bottom:18px}
+.auth-card button{width:100%;margin-top:13px}
+.auth-card .field{margin-top:13px}
+.auth-card .auth-switch{border:0;background:transparent;color:#1c7459;font-size:13px;width:100%;padding:9px}
+.auth-card .auth-error{padding:10px;background:#fff0eb;color:#99372c;border-radius:9px;font-size:13px;margin:12px 0}
+html:not(.enf-authenticated) body>header,html:not(.enf-authenticated) body>main{visibility:hidden}
+#previewPage .card{padding:0;border:0;background:transparent;box-shadow:none}
+#printNotice{font-size:12px;color:#536e61}
+@media(max-width:900px){main{grid-template-columns:206px minmax(0,1fr);gap:15px;padding-inline:16px}.card{padding:20px}.doc-preview-frame{padding:15px}.doc-preview-frame .document{padding:24px}}
+@media(max-width:780px){
+:root{font-size:15px}
+html{scroll-padding-top:78px}
+body{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
+header{padding:13px 17px;min-height:67px}
+header strong{font-size:17px}
+header small{font-size:10px}
+header .tag{font-size:10px;padding:5px 8px}
+main{display:block;padding:13px 12px 0;max-width:100%;margin:0}
+nav{position:fixed;z-index:900;bottom:0;left:0;right:0;top:auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px;background:#fff;padding:7px 7px calc(8px + env(safe-area-inset-bottom));border:0;border-top:1px solid #dce7df;border-radius:0;box-shadow:0 -5px 20px #0c422410;overflow:visible}
+nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;margin:0!important;padding:8px 3px;min-height:52px;white-space:normal;text-align:center;font-size:10px;line-height:1.1;letter-spacing:-.15px;border-radius:9px}
+nav button.active{background:#e5f2e9}
+main section{min-width:0;width:100%}
+h1{font-size:22px;letter-spacing:-.55px}
+h2{font-size:16px}
+.card{padding:17px 15px;border-radius:14px;margin-bottom:11px}
+.card>h2{margin-bottom:16px;padding-bottom:13px}
+.grid{display:grid;grid-template-columns:1fr;gap:14px}
+.field.wide{grid-column:auto}
+input,textarea,select{font-size:16px!important;min-height:48px;border-radius:10px;padding:12px}
+textarea{min-height:95px}
+.topline{display:flex;flex-direction:column;align-items:stretch;margin-bottom:14px}
+.topline>button{width:100%}
+.actions{display:grid;grid-template-columns:1fr;gap:8px}
+.actions button{width:100%;min-height:46px}
+.statgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.stat{padding:14px}
+.item{display:block}
+.item .actions{display:grid;grid-template-columns:1fr 1fr;margin-top:12px}
+.item button{font-size:12px;padding-inline:7px}
+.patient-toolbar{display:grid;grid-template-columns:1fr;gap:8px;align-items:stretch}
+.patient-toolbar .field{min-width:0}
+.patient-toolbar button{width:100%}
+.patient-list{grid-template-columns:1fr}
+.patient-card{padding:15px}
+.history-group-header{margin-top:13px}
+.record-item{display:block}
+.record-item .actions{display:grid;grid-template-columns:1fr 1fr;margin-top:10px}
+#previewPage>.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#previewPage>.actions button{min-height:47px;font-size:12px;white-space:normal}
+.doc-preview-frame{background:transparent;border:0;padding:0;overflow:visible}
+.doc-preview-frame .document{padding:19px 15px;min-height:0;box-shadow:none;border:1px solid #d9e4dc;border-radius:10px}
+.document h2{font-size:17px}
+.document .doc-head{gap:6px;padding-bottom:11px;margin-bottom:12px}
+.document .doc-brand{font-size:9px}
+.document .doc-subtitle{font-size:10px}
+.document .doc-badge{font-size:8px;padding:6px}
+.document .doc-section{margin-top:13px}
+.document .doc-section h3{font-size:10px;line-height:1.35;margin-bottom:7px}
+.document .doc-section p{font-size:11px;line-height:1.45;word-break:break-word}
+.document .doc-patient-grid{grid-template-columns:1fr 1fr;gap:10px;padding:10px}
+.document .doc-patient-grid div{font-size:11px}
+.alert{font-size:12px;line-height:1.45}
+#historyPage .card>.actions{display:grid;grid-template-columns:1fr 1fr}
+#historyPage .card>.actions label{min-width:0}
+#historyPage .card>.actions button{grid-column:1/-1}
+#historyPage .card>.actions label input{width:100%}
+.auth-card{padding:23px 20px;border-radius:17px}
+}
+@media(max-width:390px){nav button{font-size:9px;padding-inline:1px}main{padding-inline:9px}.document .doc-patient-grid{grid-template-columns:1fr}}
+@media print{
+@page{size:A4;margin:15mm 16mm}
+html.enf-authenticated body,body{padding:0!important;background:#fff!important}
+header,nav,.noprint,.auth-overlay,.status-banner{display:none!important}
+main{display:block!important;padding:0!important;margin:0!important;max-width:none!important}
+#previewPage{display:block!important}
+#previewPage>.card{border:0!important;padding:0!important;margin:0!important;box-shadow:none!important}
+.doc-preview-frame{padding:0!important;border:0!important;background:white!important}
+.doc-preview-frame .document,.document{width:auto!important;max-width:none!important;border:0!important;min-height:0!important;box-shadow:none!important;padding:0!important;border-radius:0!important}
+.document .doc-section{break-inside:auto}
+.document .doc-section p{break-inside:avoid;font-size:11px}
+.document .doc-head{break-inside:avoid}
+.document .doc-patient-grid{break-inside:avoid}
+.document .doc-section h3{break-after:avoid}
+.document .doc-footer{break-inside:avoid}
+}
