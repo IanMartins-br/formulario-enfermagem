@@ -39,7 +39,7 @@ function persistLocal(){
  catch(e){throw Error("Armazenamento do dispositivo cheio ou indisponível. Exporte um backup.")};
 }
 const api=async(path,opts={})=>{const r=await fetch("/api"+path,{credentials:"same-origin",cache:"no-store",headers:{"content-type":"application/json"},...opts});let j;try{j=await r.json()}catch(e){throw Error("Resposta inválida do servidor.")}if(!r.ok)throw Error(j.error||"Falha de comunicação");return j};
-let patients=[],selected="",historyPatient="",busy=false,ready=false;
+let patients=[],selected="",historyPatient="",busy=false,ready=false,canManageVisits=false,archivedRows=[];
 const getPatient=id=>patients.find(p=>p.id===id);
 const age=s=>{if(!s)return"";const d=new Date(s+"T12:00:00"),n=new Date();let a=n.getFullYear()-d.getFullYear();if(n.getMonth()<d.getMonth()||(n.getMonth()===d.getMonth()&&n.getDate()<d.getDate()))a--;return a>=0?a:""};
 function toast(msg,error=false){const t=document.createElement("div");t.className="status-banner";t.textContent=msg;if(error){t.style.background="#fff1ed";t.style.color="#9a4234";t.style.borderColor="#e5b8a8"}document.querySelector("main section").prepend(t);setTimeout(()=>t.remove(),6000)}
@@ -138,13 +138,42 @@ if(!historyPatient){const set=patients.filter(p=>(p.name+" "+p.record).toLowerCa
 const p=getPatient(historyPatient);if(!p){historyPatient="";renderHistory();return}
 const list=rows.filter(r=>r.patient_id===historyPatient).sort((a,b)=>String(b.value.date).localeCompare(String(a.value.date))||String(b.created).localeCompare(String(a.created)));
 let byDate={};for(const r of list){const date=r.value.date||"Sem data";(byDate[date]??=[]).push(r)}
-root.innerHTML='<button class="light" data-back="1">← Todos os pacientes</button><h2 style="margin-top:18px">'+E(p.name)+'</h2><p class="muted">Prontuário '+E(p.record)+' · '+list.length+' visitas</p><button class="secondary" data-new="'+E(p.id)+'">+ Novo atendimento</button>'+(list.length?Object.entries(byDate).map(([d,recs])=>'<div class="history-group-header">'+E(dateBR(d))+'</div>'+recs.map((r,i)=>'<div class="record-item"><div><strong>Atendimento '+(i+1)+'</strong><small>Registro em '+E(new Date(r.created||Date.now()).toLocaleString("pt-BR"))+'</small></div><div class="actions"><button class="light" data-local-preview="'+E(r.id)+'">Prévia / PDF</button><button class="secondary" data-reuse="'+E(r.id)+'">Reutilizar</button></div></div>').join("")).join(""):'<div class="empty">Nenhuma visita registrada para este paciente.</div>');
+root.innerHTML='<button class="light" data-back="1">← Todos os pacientes</button><h2 style="margin-top:18px">'+E(p.name)+'</h2><p class="muted">Prontuário '+E(p.record)+' · '+list.length+' visitas</p><button class="secondary" data-new="'+E(p.id)+'">+ Novo atendimento</button>'+(list.length?Object.entries(byDate).map(([d,recs])=>'<div class="history-group-header">'+E(dateBR(d))+'</div>'+recs.map((r,i)=>'<div class="record-item"><div><strong>Atendimento '+(i+1)+'</strong><small>Registro em '+E(new Date(r.created||Date.now()).toLocaleString("pt-BR"))+'</small></div><div class="actions"><button class="light" data-local-preview="'+E(r.id)+'">Prévia / PDF</button><button class="secondary" data-reuse="'+E(r.id)+'">Reutilizar</button>'+(canManageVisits?'<button class="light visit-delete-btn" data-remove="'+E(r.id)+'" title="Retirar atendimento lançado por engano">Excluir</button>':'')+'</div></div>').join("")).join(""):'<div class="empty">Nenhuma visita registrada para este paciente.</div>');
+ if(canManageVisits){
+  const archived=archivedRows.filter(v=>v.patient_id===historyPatient);
+  if(archived.length){
+   root.insertAdjacentHTML("beforeend",'<div class="history-archive"><h3>Atendimentos excluídos</h3><p class="muted">Registros retirados do histórico por engano ou correção, preservados para auditoria. Apenas o ADM pode restaurar.</p>'+archived.map(v=>'<div class="record-item archived-record"><div><strong>'+E(dateBR(v.visit_date))+'</strong><small>Motivo: '+E(v.deletion_reason||"Não informado")+'</small></div><div class="actions"><button class="light" data-restore="'+E(v.id)+'">Restaurar</button></div></div>').join("")+'</div>');
+  }
+ }
 }
-function historyEvent(ev){
+async function historyEvent(ev){
 const b=ev.target.closest("button");if(!b)return;
 if(b.dataset.back){historyPatient="";renderHistory();return}
 if(b.dataset.patient){historyPatient=b.dataset.patient;renderHistory();return}
 if(b.dataset.new){choosePatient(b.dataset.new,true);page("form");return}
+if(b.dataset.remove){
+ if(!canManageVisits)return;
+ const visit=rows.find(x=>x.id===b.dataset.remove);if(!visit)return;
+ const reason=prompt("Por que este atendimento deve ser excluído? Informe o motivo para auditoria:");
+ if(reason===null)return;
+ if(reason.trim().length<5){alert("Informe um motivo com pelo menos 5 caracteres.");return}
+ if(!confirm("Excluir o atendimento de "+dateBR(visit.value.date)+"? Ele deixará de aparecer no histórico, mas poderá ser restaurado pelo ADM."))return;
+ b.disabled=true;
+ try{await api("/visits/archive",{method:"POST",body:JSON.stringify({id:visit.id,reason:reason.trim()})});await refresh();renderHistory();toast("Atendimento excluído do histórico. Ele pode ser restaurado pelo ADM.")}
+ catch(e){alert("Não foi possível excluir: "+e.message)}
+ finally{b.disabled=false}
+ return;
+}
+if(b.dataset.restore){
+ if(!canManageVisits)return;
+ if(!confirm("Restaurar esse atendimento ao histórico do paciente?"))return;
+ b.disabled=true;
+ try{await api("/visits/restore",{method:"POST",body:JSON.stringify({id:b.dataset.restore})});await refresh();renderHistory();toast("Atendimento restaurado ao histórico.")}
+ catch(e){alert("Não foi possível restaurar: "+e.message)}
+ finally{b.disabled=false}
+ return;
+}
+
 const id=b.dataset.localPreview||b.dataset.reuse,r=rows.find(x=>x.id===id);if(!r)return;
 if(b.dataset.localPreview){renderDoc(r.value);previewId=r.id;page("preview");return}
 choosePatient(r.patient_id,true);
@@ -164,8 +193,8 @@ else{previousPage(name);el("patientsPage").classList.add("hidden");if(name==="hi
 };
 renderDoc=renderProfessionalDoc;
 async function refresh(){
-const [p,v,s]=await Promise.all([api("/patients"),api("/visits"),api("/settings")]);
-patients=p.patients||[];rows=v.visits||[];settings=s.settings||{};updatePicker();renderPatientList();
+const [p,v,s,a]=await Promise.all([api("/patients"),api("/visits"),api("/settings"),canManageVisits?api("/visits/archived"):Promise.resolve({visits:[]})]);
+patients=p.patients||[];rows=v.visits||[];settings=s.settings||{};archivedRows=a.visits||[];updatePicker();renderPatientList();
 settingFields.forEach(([k])=>el(k).value=settings[k]||"");
 }
 async function saveSettingsRemote(){
@@ -174,6 +203,7 @@ try{await api("/settings",{method:"POST",body:JSON.stringify(o)});settings=o;toa
 }
 
 window.ENF_APP={
+ setRole:role=>{canManageVisits=role==="admin"},
  start:async()=>{initializeUI();await refresh();ready=true;historyPatient="";page("patients");},
  refresh,
  getLegacy:()=>store,
