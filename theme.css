@@ -164,3 +164,34 @@ main{display:block!important;padding:0!important;margin:0!important;max-width:no
 .document .doc-footer{break-inside:avoid}
 }
 .document .signature-columns{display:grid;grid-template-columns:1fr 1fr;gap:30px;font-family:Arial,sans-serif}.document .signature-columns .sig-line{border-top:1px solid #8fa69a;margin:0 0 8px}.document .signature-columns p{font:11px/1.5 Arial,sans-serif;margin:0}.document .doc-signature{border:0;padding-top:0;margin-top:43px}@media(max-width:390px){.document .signature-columns{grid-template-columns:1fr;gap:23px}}@media print{.document .signature-columns{grid-template-columns:1fr 1fr;gap:25px}.document .doc-signature{break-inside:avoid}}
+
+/* Auth and account management — responsive PIN interface */
+.login-shell{position:fixed;z-index:20000;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at 80% 0%,#34705a,#163e32 65%,#102e27 100%);overflow:auto}
+.login-card{width:min(440px,100%);background:#fff;border:1px solid #dce9df;border-radius:24px;padding:32px 31px;box-shadow:0 24px 100px #07271d55}
+.login-symbol{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:#e9f3eb;color:#186047;font-size:27px;font-weight:700;margin-bottom:15px}
+.login-label{font-size:10px;font-weight:790;letter-spacing:.12em;color:#4e7c68}
+.login-card h1{margin:9px 0 4px;font-size:29px;color:#183e31;letter-spacing:-.9px}
+.login-card>p{font-size:14px;color:#667e70;margin:0 0 22px}
+.login-card form>.field{margin:0 0 17px}
+.login-card .field input{display:block;width:100%;font-size:16px!important;min-height:50px}
+.login-main-button{display:block;width:100%;background:#1b634e;color:#fff;min-height:49px;margin-top:16px}
+.login-main-button:disabled{opacity:.5;cursor:not-allowed}
+.login-feedback{font-size:13px;color:#4a6a58;min-height:10px}
+.login-feedback.error{color:#ac4239}
+.login-small-note{font-size:12px;line-height:1.5;color:#73877b;border-top:1px solid #e4ece6;padding-top:15px;margin-top:22px}
+.auth-close{display:block;background:transparent;color:#2e6953;margin:9px auto 0}
+.staff-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.staff-actions button{padding:9px 11px;min-height:38px;font-size:12px}
+.staff-item{align-items:center}
+#usersPage h1{margin-bottom:3px}
+#usersPage .listing .item:first-child{margin-top:0}
+@media(max-width:780px){
+ nav{grid-template-columns:repeat(6,minmax(0,1fr))}
+ nav button{font-size:9.5px;min-height:54px;padding:6px 1px}
+ .login-shell{padding:15px;padding-bottom:calc(15px + env(safe-area-inset-bottom))}
+ .login-card{padding:26px 21px;border-radius:18px}
+ .login-card h1{font-size:25px}
+ .staff-actions{justify-content:flex-start;margin-top:12px}
+ .staff-item{display:block}
+}
+@media print{.login-shell,#usersPage{display:none!important}}
