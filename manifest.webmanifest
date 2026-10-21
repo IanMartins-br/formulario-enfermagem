@@ -1,0 +1,18 @@
+{
+  "name": "Enfermagem | Registro Domiciliar",
+  "short_name": "Enfermagem",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7f6",
+  "theme_color": "#143d35",
+  "lang": "pt-BR",
+  "description": "Formulário de enfermagem e relatórios",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
