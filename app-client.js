@@ -3,7 +3,71 @@
 "use strict";
 const el=id=>document.getElementById(id);
 const E=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const api=async(path,opts={})=>{const r=await fetch("/api"+path,{credentials:"same-origin",cache:"no-store",headers:{"content-type":"application/json"},...opts});let j;try{j=await r.json()}catch(e){throw Error("Resposta inválida do servidor.")}if(!r.ok)throw Error(j.error||"Erro de conexão");return j};
+const STORE="enf_offline_v5";
+const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);
+function initializeLocalStore(){
+ let s=null;
+ try{s=JSON.parse(localStorage.getItem(STORE)||"null")}catch(e){}
+ if(s&&Array.isArray(s.patients)&&Array.isArray(s.visits))return s;
+ s={patients:[],visits:[],settings:{},version:5};
+ try{
+  const prior=JSON.parse(localStorage.getItem("enf_visits_v3")||"[]");
+  const cfg=JSON.parse(localStorage.getItem("enf_config_v3")||"{}");
+  if(cfg&&typeof cfg==="object"&&!Array.isArray(cfg))s.settings=cfg;
+  if(Array.isArray(prior)){
+   const map=new Map();
+   for(const item of prior){
+    if(!item||typeof item!=="object"||!item.value||typeof item.value!=="object")continue;
+    const v=item.value;
+    const key=String(v.record||v.name||"").trim();
+    if(!key)continue;
+    let p=map.get(key);
+    if(!p){
+     p={id:uid(),name:String(v.name||"Sem nome"),record:String(v.record||key),birth:String(v.birth||""),location:String(v.location||""),informant:String(v.informant||"")};
+     map.set(key,p);s.patients.push(p);
+    }
+    s.visits.push({id:String(item.id||uid()),patient_id:p.id,created:String(item.created||new Date().toISOString()),value:{...v,name:p.name,record:p.record,birth:p.birth}});
+   }
+  }
+ }catch(e){}
+ try{localStorage.setItem(STORE,JSON.stringify(s))}catch(e){}
+ return s;
+}
+let store=initializeLocalStore();
+function persistLocal(){
+ try{localStorage.setItem(STORE,JSON.stringify(store))}
+ catch(e){throw Error("Armazenamento do dispositivo cheio ou indisponível. Exporte um backup.")};
+}
+const api=async(path,opts={})=>{
+ const method=opts.method||"GET";
+ let value={};
+ if(method==="POST"){try{value=JSON.parse(opts.body||"{}")}catch(e){throw Error("Dados inválidos")}}
+ const safe=(v,n=400)=>String(v??"").trim().slice(0,n);
+ if(path==="/patients"){
+  if(method==="GET")return {patients:store.patients.slice().sort((a,b)=>a.name.localeCompare(b.name,"pt-BR"))};
+  if(!safe(value.name)||!safe(value.record)||!safe(value.birth))throw Error("Preencha nome, prontuário e nascimento.");
+  const previous=value.id&&store.patients.find(p=>p.id===value.id);
+  if(store.patients.some(p=>p.record===safe(value.record)&&p.id!==value.id))throw Error("Já existe um paciente com esse prontuário.");
+  const p={id:previous?.id||uid(),name:safe(value.name,200),record:safe(value.record,80),birth:safe(value.birth,10),location:safe(value.location,200),informant:safe(value.informant,160)};
+  if(previous)Object.assign(previous,p);else store.patients.push(p);
+  persistLocal();return {ok:true,id:p.id};
+ }
+ if(path==="/visits"){
+  if(method==="GET")return {visits:store.visits.slice().sort((a,b)=>String(b.value.date).localeCompare(String(a.value.date)))};
+  const p=store.patients.find(p=>p.id===value.patient_id);
+  if(!p)throw Error("Selecione um paciente cadastrado.");
+  if(!value.value||!String(value.value.date||"").match(/^\d{4}-\d{2}-\d{2}$/))throw Error("Data do atendimento inválida.");
+  const v={...value.value,name:p.name,record:p.record,birth:p.birth,location:value.value.location||p.location,informant:value.value.informant||p.informant};
+  const saved={id:uid(),patient_id:p.id,created:new Date().toISOString(),value:v};
+  store.visits.push(saved);persistLocal();return {ok:true,id:saved.id,visit:saved};
+ }
+ if(path==="/settings"){
+  if(method==="GET")return {settings:{...store.settings}};
+  store.settings={nurse:safe(value.nurse,200),coren:safe(value.coren,80),supervisor:safe(value.supervisor,200),superCoren:safe(value.superCoren,80)};
+  persistLocal();return {ok:true};
+ }
+ throw Error("Operação indisponível no modo sem login.");
+};
 let patients=[],selected="",historyPatient="",busy=false,ready=false;
 const getPatient=id=>patients.find(p=>p.id===id);
 const age=s=>{if(!s)return"";const d=new Date(s+"T12:00:00"),n=new Date();let a=n.getFullYear()-d.getFullYear();if(n.getMonth()<d.getMonth()||(n.getMonth()===d.getMonth()&&n.getDate()<d.getDate()))a--;return a>=0?a:""};
@@ -39,9 +103,20 @@ el("printPreview").textContent="Salvar como PDF";
 el("clearBtn").onclick=()=>{if(!confirm("Começar novo atendimento? Os dados não salvos serão descartados."))return;el("recordForm").reset();el("date").value=new Date().toLocaleDateString("en-CA");choosePatient(selected,false);el("lesions").checked=false;toggleWounds()};
 el("saveSettings").onclick=saveSettingsRemote;
 el("exportBackup").onclick=()=>{if(!ready)return;download("backup-enfermagem-"+new Date().toISOString().slice(0,10)+".json",JSON.stringify({patients,visits:rows,settings},null,2),"application/json")};
-el("importBtn").style.display="none";
-el("settingsPage").querySelector(".card:last-child").insertAdjacentHTML("beforeend",'<div class="actions"><button id="logout" class="light">Sair da conta</button><button id="changePassword" class="secondary">Alterar senha</button></div>');
-el("logout").onclick=logout;el("changePassword").onclick=changePw;
+el("importBtn").textContent="Importar backup JSON";
+el("importFile").onchange=async function(evt){
+ const file=evt.target.files?.[0];if(!file)return;
+ try{
+  const imported=JSON.parse(await file.text());
+  const hasNew=Array.isArray(imported.patients)&&Array.isArray(imported.visits);
+  if(!hasNew)throw Error("Este arquivo não contém cadastro e histórico no formato esperado.");
+  if(!confirm("Substituir todos os pacientes e históricos deste dispositivo pelo backup?"))return;
+  store={patients:imported.patients,visits:imported.visits,settings:imported.settings||{},version:5};
+  persistLocal();await refresh();historyPatient="";page("patients");toast("Backup restaurado.");
+ }catch(err){toast("Não foi possível importar: "+err.message,true)}
+ finally{evt.target.value=""}
+};
+el("settingsPage").querySelector(".card:last-child").insertAdjacentHTML("beforeend",'<p class="muted">Modo sem login: armazenamento neste dispositivo, sem sincronização com o D1. Faça backups para não perder o histórico.</p>');
 el("document").parentElement.classList.add("doc-preview-frame");
 el("previewPage").querySelector(".actions").insertAdjacentHTML("beforeend",'<span id="printNotice" class="muted">Prévia em A4, antes de gerar o arquivo PDF.</span>');
 el("back").textContent="← Voltar";
@@ -58,7 +133,7 @@ async function savePatient(ev){
 ev.preventDefault();if(busy)return;
 const payload={id:el("patientForm").dataset.edit||undefined,name:el("peName").value.trim(),record:el("peRecord").value.trim(),birth:el("peBirth").value,location:el("peLocation").value.trim(),informant:el("peInformant").value.trim()};
 busy=true;el("savePatient").disabled=true;
-try{const d=await api("/patients",{method:"POST",body:JSON.stringify(payload)});await refresh();el("patientEditor").classList.add("hidden");selected=d.id;choosePatient(d.id,false);toast("Paciente salvo no banco D1.");page("form")}
+try{const d=await api("/patients",{method:"POST",body:JSON.stringify(payload)});await refresh();el("patientEditor").classList.add("hidden");selected=d.id;choosePatient(d.id,false);toast("Paciente cadastrado neste dispositivo.");page("form")}
 catch(e){toast(e.message,true)}finally{busy=false;el("savePatient").disabled=false}
 }
 function renderPatientList(){
@@ -90,15 +165,15 @@ if(!historyPatient){const set=patients.filter(p=>(p.name+" "+p.record).toLowerCa
 const p=getPatient(historyPatient);if(!p){historyPatient="";renderHistory();return}
 const list=rows.filter(r=>r.patient_id===historyPatient).sort((a,b)=>String(b.value.date).localeCompare(String(a.value.date))||String(b.created).localeCompare(String(a.created)));
 let byDate={};for(const r of list){const date=r.value.date||"Sem data";(byDate[date]??=[]).push(r)}
-root.innerHTML='<button class="light" data-back="1">← Todos os pacientes</button><h2 style="margin-top:18px">'+E(p.name)+'</h2><p class="muted">Prontuário '+E(p.record)+' · '+list.length+' visitas</p><button class="secondary" data-new="'+E(p.id)+'">+ Novo atendimento</button>'+(list.length?Object.entries(byDate).map(([d,recs])=>'<div class="history-group-header">'+E(dateBR(d))+'</div>'+recs.map((r,i)=>'<div class="record-item"><div><strong>Atendimento '+(i+1)+'</strong><small>Registro em '+E(new Date(r.created||Date.now()).toLocaleString("pt-BR"))+'</small></div><div class="actions"><button class="light" data-open="'+E(r.id)+'">Prévia / PDF</button><button class="secondary" data-reuse="'+E(r.id)+'">Reutilizar</button></div></div>').join("")).join(""):'<div class="empty">Nenhuma visita registrada para este paciente.</div>');
+root.innerHTML='<button class="light" data-back="1">← Todos os pacientes</button><h2 style="margin-top:18px">'+E(p.name)+'</h2><p class="muted">Prontuário '+E(p.record)+' · '+list.length+' visitas</p><button class="secondary" data-new="'+E(p.id)+'">+ Novo atendimento</button>'+(list.length?Object.entries(byDate).map(([d,recs])=>'<div class="history-group-header">'+E(dateBR(d))+'</div>'+recs.map((r,i)=>'<div class="record-item"><div><strong>Atendimento '+(i+1)+'</strong><small>Registro em '+E(new Date(r.created||Date.now()).toLocaleString("pt-BR"))+'</small></div><div class="actions"><button class="light" data-local-preview="'+E(r.id)+'">Prévia / PDF</button><button class="secondary" data-reuse="'+E(r.id)+'">Reutilizar</button></div></div>').join("")).join(""):'<div class="empty">Nenhuma visita registrada para este paciente.</div>');
 }
 function historyEvent(ev){
 const b=ev.target.closest("button");if(!b)return;
 if(b.dataset.back){historyPatient="";renderHistory();return}
 if(b.dataset.patient){historyPatient=b.dataset.patient;renderHistory();return}
 if(b.dataset.new){choosePatient(b.dataset.new,true);page("form");return}
-const id=b.dataset.open||b.dataset.reuse,r=rows.find(x=>x.id===id);if(!r)return;
-if(b.dataset.open){renderDoc(r.value);previewId=r.id;page("preview");return}
+const id=b.dataset.localPreview||b.dataset.reuse,r=rows.find(x=>x.id===id);if(!r)return;
+if(b.dataset.localPreview){renderDoc(r.value);previewId=r.id;page("preview");return}
 choosePatient(r.patient_id,true);
 for(const [k,v] of Object.entries(r.value)){const f=el(k);if(!f||["name","birth","record","age"].includes(k))continue;if(f.type==="checkbox")f.checked=!!v;else if("value" in f)f.value=String(v??"")}
 toggleWounds();page("form");toast("Dados recuperados. Gerar modelo criará novo atendimento, sem apagar o anterior.");
@@ -122,23 +197,15 @@ settingFields.forEach(([k])=>el(k).value=settings[k]||"");
 }
 async function saveSettingsRemote(){
 const o={};settingFields.forEach(([k])=>o[k]=el(k).value.trim());
-try{await api("/settings",{method:"POST",body:JSON.stringify(o)});settings=o;toast("Configuração profissional salva no D1.")}catch(e){toast(e.message,true)}
+try{await api("/settings",{method:"POST",body:JSON.stringify(o)});settings=o;toast("Configuração salva neste dispositivo.")}catch(e){toast(e.message,true)}
 }
-async function logout(){try{await api("/logout",{method:"POST"})}catch(e){}rows=[];patients=[];loginUI()}
-async function changePw(){
-const password=prompt("Nova senha (pelo menos 14 caracteres):");if(password===null)return;if(password.length<14){toast("Senha com menos de 14 caracteres.",true);return}
-try{await api("/password",{method:"POST",body:JSON.stringify({password})});loginUI()}catch(e){toast(e.message,true)}
-}
-function loginUI(){
-document.documentElement.classList.remove("enf-authenticated");ready=false;el("authOverlay")?.remove();
-const overlay=document.createElement("div");overlay.id="authOverlay";overlay.className="auth-overlay";
-overlay.innerHTML='<div class="auth-card"><span class="tag">ÁREA RESTRITA</span><h1>Enfermagem</h1><p>Acesse seus pacientes e registros armazenados no servidor.</p><form id="loginForm"><div class="field"><label>E-mail</label><input id="loginEmail" type="email" autocomplete="username" required></div><div class="field"><label>Senha</label><input id="loginPw" type="password" autocomplete="current-password" required></div><div id="loginError"></div><button type="submit">Entrar</button></form><form id="setupForm" class="hidden"><div class="field"><label>Chave de ativação do Cloudflare</label><input id="setupKey" type="password" required></div><div class="field"><label>E-mail do administrador</label><input id="setupEmail" type="email" required></div><div class="field"><label>Criar senha (mínimo 14 caracteres)</label><input id="setupPw" type="password" minlength="14" required></div><div id="setupError"></div><button type="submit">Ativar conta</button></form><button class="auth-switch" id="toggleSetup" type="button">Primeiro acesso? Ativar conta</button></div>';
-document.body.append(overlay);
-el("toggleSetup").onclick=()=>{let setupVisible=el("setupForm").classList.contains("hidden");el("setupForm").classList.toggle("hidden",!setupVisible);el("loginForm").classList.toggle("hidden",setupVisible);el("toggleSetup").textContent=setupVisible?"Já tenho conta. Entrar":"Primeiro acesso? Ativar conta"};
-el("loginForm").onsubmit=async e=>{e.preventDefault();let b=e.target.querySelector("button");b.disabled=true;el("loginError").textContent="";try{await api("/login",{method:"POST",body:JSON.stringify({email:el("loginEmail").value.trim(),password:el("loginPw").value})});await unlock()}catch(err){el("loginError").className="auth-error";el("loginError").textContent=err.message}finally{b.disabled=false}};
-el("setupForm").onsubmit=async e=>{e.preventDefault();let b=e.target.querySelector("button");b.disabled=true;el("setupError").textContent="";try{await api("/setup",{method:"POST",body:JSON.stringify({setupKey:el("setupKey").value,email:el("setupEmail").value.trim(),password:el("setupPw").value})});el("toggleSetup").click();el("loginEmail").value=el("setupEmail").value;el("loginError").textContent="Conta ativada. Entre com sua senha."}catch(err){el("setupError").className="auth-error";el("setupError").textContent=err.message}finally{b.disabled=false}};
-}
-async function unlock(){try{await refresh();ready=true;document.documentElement.classList.add("enf-authenticated");el("authOverlay")?.remove();historyPatient="";page("patients");toast("Prontuários conectados ao banco D1.")}catch(e){loginUI();el("loginError").className="auth-error";el("loginError").textContent=e.message}}
+
 initializeUI();
-(async()=>{try{await api("/me");await unlock()}catch(e){loginUI()}})();
+document.documentElement.classList.add("enf-authenticated");
+refresh().then(()=>{
+ ready=true;
+ historyPatient="";
+ page("patients");
+ toast("Sem login: dados salvos somente neste dispositivo. Faça backups regularmente.");
+}).catch(e=>toast("Não foi possível abrir os dados locais: "+e.message,true));
 })();
