@@ -43,6 +43,19 @@ export async function onRequest({request,env}){
  try{
  const db=env.DB,secret=env.APP_SETUP_KEY;
  if(path==="/api/login"&&method==="POST")return await login(request,db,secret);
+ if(path==="/api/health"&&method==="GET"&&new URL(request.url).searchParams.get("diagnostic")==="1"){
+  const checks={};let stage="start";
+  try{
+   stage="rate_limit";checks.rateLimit=await failCount(db,await sha("diagnostic-probe"),8)===false;
+   stage="admin_select";const a=await db.prepare("SELECT active,must_change,pin_salt,pin_hash FROM staff_accounts WHERE username=?").bind("mari").first();checks.adminExists=!!a;checks.active=a?.active===1;
+   stage="update_check";await db.prepare("EXPLAIN UPDATE staff_accounts SET username='mari' WHERE id='ian-admin' AND username='ian' AND NOT EXISTS(SELECT 1 FROM staff_accounts WHERE username='mari')").all();checks.updateSql=true;
+   stage="pbkdf2";const start=Date.now();const h=await pinHash("111222","ab".repeat(16),secret);checks.pbkdf2OK=typeof h==="string"&&h.length===64;checks.pbkdf2Ms=Date.now()-start;
+   stage="cleanup_sql";await db.prepare("EXPLAIN DELETE FROM staff_login_attempts WHERE attempt_key IN (?,?)").bind("x","y").all();checks.cleanupSql=true;
+   stage="session_sql";await db.prepare("EXPLAIN INSERT INTO staff_sessions(token_hash,user_id,expires_at) VALUES (?,?,?)").bind("x","y",new Date().toISOString()).all();checks.sessionSql=true;
+   stage="audit_sql";await db.prepare("EXPLAIN INSERT INTO audit_events (id,actor_id,action,record_id) VALUES (?,?,?,?)").bind("x","y","z",null).all();checks.auditSql=true;
+   return reply({ok:true,checks});
+  }catch(e){console.error("AUTH_DIAG",{stage,name:e?.name,msg:String(e?.message||e).slice(0,250)});return reply({ok:false,stage,errorType:e?.name||"Error",message:String(e?.message||e).slice(0,140),checks},200)}
+ }
  if(path==="/api/health"&&method==="GET")return reply({ok:true,authentication:"required"});
  const user=await auth(request,db);if(!user)return deny();
  if(path==="/api/me"&&method==="GET")return reply({user:{id:user.id,username:user.username,name:user.display_name,role:user.role,mustChange:!!user.must_change}});
