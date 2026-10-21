@@ -21,10 +21,14 @@ async function failCount(db,key,limit){const r=await db.prepare("SELECT attempts
 async function addFailure(db,key){const now=new Date().toISOString(),r=await db.prepare("SELECT attempts,last_attempt FROM staff_login_attempts WHERE attempt_key=?").bind(key).first();const n=r&&Date.now()-new Date(r.last_attempt).getTime()<1800000?r.attempts+1:1;await db.prepare("INSERT INTO staff_login_attempts(attempt_key,attempts,last_attempt) VALUES(?,?,?) ON CONFLICT(attempt_key) DO UPDATE SET attempts=excluded.attempts,last_attempt=excluded.last_attempt").bind(key,n,now).run()}
 async function login(req,db,secret){const b=await input(req),username=clean(b.username,30).toLowerCase(),pin=b.pin;const ipkey=await sha("ip:"+(req.headers.get("cf-connecting-ip")||"na")),accountkey=await sha("user:"+username);if(await failCount(db,ipkey,8)||await failCount(db,accountkey,6))return reply({error:"Muitas tentativas. Aguarde 30 minutos."},429);
 if(!validName(username)||!validPin(pin))return reply({error:"Usuário ou PIN inválido."},401);
+// Rename the existing owner account on the first login attempt using the new username.
+if(username==="mari"){
+ await db.prepare("UPDATE staff_accounts SET username='mari', display_name='Mari', updated_at=CURRENT_TIMESTAMP WHERE id='ian-admin' AND username='ian' AND NOT EXISTS(SELECT 1 FROM staff_accounts WHERE username='mari')").run();
+}
 const user=await db.prepare("SELECT id,username,display_name,role,active,must_change,pin_salt,pin_hash FROM staff_accounts WHERE username=?").bind(username).first();
 let verified=false;if(user&&user.active){verified=secureEqual(await pinHash(pin,user.pin_salt,secret),user.pin_hash)}
-if(!verified){await Promise.all([addFailure(db,ipkey),addFailure(db,accountkey)]);return reply({error:"Usuário ou PIN inválido."},401)}
-await Promise.all([db.prepare("DELETE FROM staff_login_attempts WHERE attempt_key IN (?,?)").bind(ipkey,accountkey).run(),db.prepare("DELETE FROM staff_sessions WHERE user_id=? AND expires_at<?").bind(user.id,new Date().toISOString()).run()]);
+if(!verified){await addFailure(db,ipkey);await addFailure(db,accountkey);return reply({error:"Usuário ou PIN inválido."},401)}
+await db.prepare("DELETE FROM staff_login_attempts WHERE attempt_key IN (?,?)").bind(ipkey,accountkey).run();await db.prepare("DELETE FROM staff_sessions WHERE user_id=? AND expires_at<?").bind(user.id,new Date().toISOString()).run();
 const tok=await newSession(db,user);await log(db,user.id,"login",null);
 return reply({ok:true,user:{id:user.id,username:user.username,name:user.display_name,role:user.role,mustChange:!!user.must_change}},200,{"set-cookie":cookie(tok)});
 }
@@ -92,5 +96,5 @@ export async function onRequest({request,env}){
  await log(db,user.id,"legacy_import",null);return reply({ok:true,patients:countP,visits:countV});
  }
  return reply({error:"Operação não encontrada."},404);
- }catch(e){if(String(e).includes("large"))return reply({error:"Dados enviados ultrapassam o limite."},413);if(String(e).includes("UNIQUE constraint"))return reply({error:"Registro já existe."},409);return reply({error:"Falha na operação. Tente novamente."},500)}
+ }catch(e){console.error("ENF_API_FAILURE",{route:path,kind:e?.name||"Error",detail:String(e?.message||e).slice(0,220)});if(String(e).includes("large"))return reply({error:"Dados enviados ultrapassam o limite."},413);if(String(e).includes("UNIQUE constraint"))return reply({error:"Registro já existe."},409);if(path==="/api/login")return reply({error:"Erro interno na autenticação. Verifique a configuração e tente novamente.",code:"AUTH_INTERNAL"},500);return reply({error:"Falha na operação. Tente novamente.",code:"REQUEST_INTERNAL"},500)}
 }
