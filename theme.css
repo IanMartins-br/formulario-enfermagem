@@ -163,3 +163,4 @@ main{display:block!important;padding:0!important;margin:0!important;max-width:no
 .document .doc-section h3{break-after:avoid}
 .document .doc-footer{break-inside:avoid}
 }
+.document .signature-columns{display:grid;grid-template-columns:1fr 1fr;gap:30px;font-family:Arial,sans-serif}.document .signature-columns .sig-line{border-top:1px solid #8fa69a;margin:0 0 8px}.document .signature-columns p{font:11px/1.5 Arial,sans-serif;margin:0}.document .doc-signature{border:0;padding-top:0;margin-top:43px}@media(max-width:390px){.document .signature-columns{grid-template-columns:1fr;gap:23px}}@media print{.document .signature-columns{grid-template-columns:1fr 1fr;gap:25px}.document .doc-signature{break-inside:avoid}}
