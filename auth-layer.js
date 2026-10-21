@@ -25,6 +25,7 @@ function showPinChange(force){
  };
 }
 async function enterApp(){
+ window.ENF_APP.setRole(current.role);
  if(!$("patientsPage")){await window.ENF_APP.start()}else await window.ENF_APP.refresh();
  document.documentElement.classList.add("enf-authenticated");
  $("loginOverlay")?.remove();
