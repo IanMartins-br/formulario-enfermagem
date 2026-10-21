@@ -6,7 +6,7 @@ const rand=()=>crypto.randomUUID();
 const digest=async t=>toHex(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t)));
 async function hashPassword(password,salt,n=230000){const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),"PBKDF2",false,["deriveBits"]);return toHex(await crypto.subtle.deriveBits({name:"PBKDF2",salt:Uint8Array.from(salt.match(/../g).map(x=>parseInt(x,16))),iterations:n,hash:"SHA-256"},key,256))}
 function cookie(request){const s=request.headers.get("cookie")||"";return s.split(";").map(x=>x.trim()).find(x=>x.startsWith("enf_session="))?.slice(12)||""}
-function sameOrigin(request){const o=request.headers.get("origin");return o===new URL(request.url).origin}
+function sameOrigin(request){const o=request.headers.get("origin");const site=request.headers.get("sec-fetch-site");return o ? o===new URL(request.url).origin : (site==="same-origin"||site==="none")}
 function valid(v,max=200){return typeof v==="string"&&v.trim().length>0&&v.length<=max}
 function field(v,max=500){return typeof v==="string"?v.slice(0,max).trim():""}
 async function bodyJSON(req){const len=Number(req.headers.get("content-length")||0);if(len>95000)throw Error("payload-large");const txt=await req.text();if(txt.length>95000)throw Error("payload-large");return JSON.parse(txt)}
