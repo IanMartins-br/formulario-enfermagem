@@ -25,7 +25,7 @@ el("patientList").onclick=e=>{const b=e.target.closest("[data-id]");if(b){histor
 el("patientForm").onsubmit=savePatient;
 el("patientSelect").onchange=()=>choosePatient(el("patientSelect").value,true);
 el("historyPage").querySelector("h1").textContent="Histórico por paciente";
-el("historyPage").querySelector(".topline button")?.remove();
+/* Mantém o botão de exportação para evitar erro na inicialização. */
 el("search").placeholder="Buscar por nome ou prontuário";
 el("search").oninput=renderHistory;
 for(const id of ["dateFrom","dateTo","resetFilter"])el(id).parentElement.style.display="none";
