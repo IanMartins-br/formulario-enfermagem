@@ -38,36 +38,7 @@ function persistLocal(){
  try{localStorage.setItem(STORE,JSON.stringify(store))}
  catch(e){throw Error("Armazenamento do dispositivo cheio ou indisponível. Exporte um backup.")};
 }
-const api=async(path,opts={})=>{
- const method=opts.method||"GET";
- let value={};
- if(method==="POST"){try{value=JSON.parse(opts.body||"{}")}catch(e){throw Error("Dados inválidos")}}
- const safe=(v,n=400)=>String(v??"").trim().slice(0,n);
- if(path==="/patients"){
-  if(method==="GET")return {patients:store.patients.slice().sort((a,b)=>a.name.localeCompare(b.name,"pt-BR"))};
-  if(!safe(value.name)||!safe(value.record)||!safe(value.birth))throw Error("Preencha nome, prontuário e nascimento.");
-  const previous=value.id&&store.patients.find(p=>p.id===value.id);
-  if(store.patients.some(p=>p.record===safe(value.record)&&p.id!==value.id))throw Error("Já existe um paciente com esse prontuário.");
-  const p={id:previous?.id||uid(),name:safe(value.name,200),record:safe(value.record,80),birth:safe(value.birth,10),location:safe(value.location,200),informant:safe(value.informant,160)};
-  if(previous)Object.assign(previous,p);else store.patients.push(p);
-  persistLocal();return {ok:true,id:p.id};
- }
- if(path==="/visits"){
-  if(method==="GET")return {visits:store.visits.slice().sort((a,b)=>String(b.value.date).localeCompare(String(a.value.date)))};
-  const p=store.patients.find(p=>p.id===value.patient_id);
-  if(!p)throw Error("Selecione um paciente cadastrado.");
-  if(!value.value||!String(value.value.date||"").match(/^\d{4}-\d{2}-\d{2}$/))throw Error("Data do atendimento inválida.");
-  const v={...value.value,name:p.name,record:p.record,birth:p.birth,location:value.value.location||p.location,informant:value.value.informant||p.informant};
-  const saved={id:uid(),patient_id:p.id,created:new Date().toISOString(),value:v};
-  store.visits.push(saved);persistLocal();return {ok:true,id:saved.id,visit:saved};
- }
- if(path==="/settings"){
-  if(method==="GET")return {settings:{...store.settings}};
-  store.settings={nurse:safe(value.nurse,200),coren:safe(value.coren,80),supervisor:safe(value.supervisor,200),superCoren:safe(value.superCoren,80)};
-  persistLocal();return {ok:true};
- }
- throw Error("Operação indisponível no modo sem login.");
-};
+const api=async(path,opts={})=>{const r=await fetch("/api"+path,{credentials:"same-origin",cache:"no-store",headers:{"content-type":"application/json"},...opts});let j;try{j=await r.json()}catch(e){throw Error("Resposta inválida do servidor.")}if(!r.ok)throw Error(j.error||"Falha de comunicação");return j};
 let patients=[],selected="",historyPatient="",busy=false,ready=false;
 const getPatient=id=>patients.find(p=>p.id===id);
 const age=s=>{if(!s)return"";const d=new Date(s+"T12:00:00"),n=new Date();let a=n.getFullYear()-d.getFullYear();if(n.getMonth()<d.getMonth()||(n.getMonth()===d.getMonth()&&n.getDate()<d.getDate()))a--;return a>=0?a:""};
@@ -75,7 +46,7 @@ function toast(msg,error=false){const t=document.createElement("div");t.classNam
 function initializeUI(){
 const nav=el("nav"),button=document.createElement("button");button.dataset.page="patients";button.textContent="♙ Pacientes";nav.insertBefore(button,nav.children[1]);button.onclick=()=>page("patients");
 const pane=document.createElement("div");pane.id="patientsPage";pane.className="hidden noprint";
-pane.innerHTML='<div class="topline"><div><h1>Pacientes</h1><p class="muted">Cadastre uma única vez e acompanhe os atendimentos.</p></div><button id="addPatient">+ Cadastrar paciente</button></div><div class="card"><div class="field"><label>Buscar paciente</label><input id="patientSearch" placeholder="Nome ou prontuário"></div><div class="patient-list" id="patientList" style="margin-top:15px"></div></div><div class="card hidden" id="patientEditor"><h2>Cadastro do paciente</h2><form id="patientForm"><div class="grid"><div class="field wide"><label>Nome completo *</label><input id="peName" maxlength="200" required></div><div class="field"><label>Nº do prontuário *</label><input id="peRecord" maxlength="80" required></div><div class="field"><label>Data de nascimento *</label><input type="date" id="peBirth" required></div><div class="field"><label>Local de atendimento</label><input id="peLocation"></div><div class="field"><label>Informante habitual</label><input id="peInformant"></div></div><div class="actions"><button type="submit" id="savePatient">Salvar paciente</button><button type="button" class="light" id="cancelPatient">Cancelar</button></div></form></div>';
+pane.innerHTML='<div class="topline"><div><h1>Pacientes</h1><p class="muted">Cadastre uma única vez e acompanhe os atendimentos.</p></div><button id="addPatient">+ Cadastrar paciente</button></div><div class="card"><div class="field"><label>Buscar paciente</label><input id="patientSearch" placeholder="Nome ou prontuário"></div><div class="patient-list" id="patientList" style="margin-top:15px"></div></div><div class="card hidden" id="patientEditor"><h2>Cadastro do paciente</h2><form id="patientForm"><div class="grid"><div class="field wide"><label>Nome completo *</label><input id="peName" maxlength="200" required></div><div class="field"><label>Nº do prontuário *</label><input id="peRecord" maxlength="80" required></div><div class="field"><label>Data de nascimento *</label><input type="date" id="peBirth" required></div><div class="field"><label>Local de atendimento</label><input id="peLocation"></div><div class="field"><label>Informante habitual</label><input id="peInformant"></div><div class="field"><label>WhatsApp do paciente (opcional)</label><input id="peWhatsapp" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="(31) 99999-9999"></div></div><div class="actions"><button type="submit" id="savePatient">Salvar paciente</button><button type="button" class="light" id="cancelPatient">Cancelar</button></div></form></div>';
 el("historyPage").before(pane);
 const picker=document.createElement("div");picker.id="patientPicker";picker.className="card noprint";
 picker.innerHTML='<h2>Paciente deste atendimento</h2><div class="patient-toolbar"><div class="field"><label>Selecionar paciente cadastrado *</label><select id="patientSelect"><option value="">Selecione...</option></select></div><button type="button" class="light" id="patientShortcut">+ Cadastrar</button></div><p class="muted">Nome, nascimento, idade e prontuário são preenchidos automaticamente.</p>';
@@ -87,6 +58,7 @@ el("patientShortcut").onclick=()=>editPatient();
 el("patientSearch").oninput=renderPatientList;
 el("patientList").onclick=e=>{const b=e.target.closest("[data-id]");if(b){historyPatient=b.dataset.id;page("history")}};
 el("patientForm").onsubmit=savePatient;
+el("peWhatsapp").addEventListener("input",e=>{const d=e.target.value.replace(/\D/g,"").slice(0,11);e.target.value=d.length<=2?"("+d:d.length<=7?"("+d.slice(0,2)+") "+d.slice(2):"("+d.slice(0,2)+") "+d.slice(2,7)+"-"+d.slice(7)});
 el("patientSelect").onchange=()=>choosePatient(el("patientSelect").value,true);
 el("historyPage").querySelector("h1").textContent="Histórico por paciente";
 /* Mantém o botão de exportação para evitar erro na inicialização. */
@@ -108,15 +80,16 @@ el("importFile").onchange=async function(evt){
  const file=evt.target.files?.[0];if(!file)return;
  try{
   const imported=JSON.parse(await file.text());
-  const hasNew=Array.isArray(imported.patients)&&Array.isArray(imported.visits);
-  if(!hasNew)throw Error("Este arquivo não contém cadastro e histórico no formato esperado.");
-  if(!confirm("Substituir todos os pacientes e históricos deste dispositivo pelo backup?"))return;
-  store={patients:imported.patients,visits:imported.visits,settings:imported.settings||{},version:5};
-  persistLocal();await refresh();historyPatient="";page("patients");toast("Backup restaurado.");
- }catch(err){toast("Não foi possível importar: "+err.message,true)}
+  const people=imported.patients||[];
+  const visits=imported.visits||imported.rows||[];
+  if(!Array.isArray(people)||!Array.isArray(visits))throw Error("Formato de arquivo inválido.");
+  if(!confirm("Importar "+people.length+" pacientes e "+visits.length+" atendimentos do backup? Os existentes serão preservados."))return;
+  const outcome=await api("/migrate",{method:"POST",body:JSON.stringify({patients:people,visits})});
+  await refresh();historyPatient="";page("patients");toast("Importação concluída: "+outcome.patients+" pacientes e "+outcome.visits+" atendimentos.");
+ }catch(e){toast("Não foi possível importar: "+e.message,true)}
  finally{evt.target.value=""}
 };
-el("settingsPage").querySelector(".card:last-child").insertAdjacentHTML("beforeend",'<p class="muted">Modo sem login: armazenamento neste dispositivo, sem sincronização com o D1. Faça backups para não perder o histórico.</p>');
+el("settingsPage").querySelector(".card:last-child").insertAdjacentHTML("beforeend",'<p class="muted">Acesso protegido por PIN. Os registros são sincronizados pelo banco D1, com acompanhamento de alterações administrativas.</p>');
 el("document").parentElement.classList.add("doc-preview-frame");
 el("previewPage").querySelector(".actions").insertAdjacentHTML("beforeend",'<span id="printNotice" class="muted">Prévia em A4, antes de gerar o arquivo PDF.</span>');
 el("back").textContent="← Voltar";
@@ -126,14 +99,14 @@ document.querySelector("header .tag").textContent="Acesso restrito";
 function editPatient(p){
 page("patients");el("patientEditor").classList.remove("hidden");
 el("patientForm").dataset.edit=p?.id||"";
-el("peName").value=p?.name||"";el("peRecord").value=p?.record||"";el("peRecord").readOnly=!!p;el("peBirth").value=p?.birth||"";el("peLocation").value=p?.location||"";el("peInformant").value=p?.informant||"";
+el("peName").value=p?.name||"";el("peRecord").value=p?.record||"";el("peRecord").readOnly=!!p;el("peBirth").value=p?.birth||"";el("peLocation").value=p?.location||"";el("peInformant").value=p?.informant||"";el("peWhatsapp").value=p?.whatsapp||"";
 el("patientEditor").scrollIntoView({behavior:"smooth",block:"start"});
 }
 async function savePatient(ev){
 ev.preventDefault();if(busy)return;
-const payload={id:el("patientForm").dataset.edit||undefined,name:el("peName").value.trim(),record:el("peRecord").value.trim(),birth:el("peBirth").value,location:el("peLocation").value.trim(),informant:el("peInformant").value.trim()};
+const payload={id:el("patientForm").dataset.edit||undefined,name:el("peName").value.trim(),record:el("peRecord").value.trim(),birth:el("peBirth").value,location:el("peLocation").value.trim(),informant:el("peInformant").value.trim(),whatsapp:el("peWhatsapp").value.trim()};
 busy=true;el("savePatient").disabled=true;
-try{const d=await api("/patients",{method:"POST",body:JSON.stringify(payload)});await refresh();el("patientEditor").classList.add("hidden");selected=d.id;choosePatient(d.id,false);toast("Paciente cadastrado neste dispositivo.");page("form")}
+try{const d=await api("/patients",{method:"POST",body:JSON.stringify(payload)});await refresh();el("patientEditor").classList.add("hidden");selected=d.id;choosePatient(d.id,false);toast("Paciente cadastrado no banco de dados.");page("form")}
 catch(e){toast(e.message,true)}finally{busy=false;el("savePatient").disabled=false}
 }
 function renderPatientList(){
@@ -197,15 +170,14 @@ settingFields.forEach(([k])=>el(k).value=settings[k]||"");
 }
 async function saveSettingsRemote(){
 const o={};settingFields.forEach(([k])=>o[k]=el(k).value.trim());
-try{await api("/settings",{method:"POST",body:JSON.stringify(o)});settings=o;toast("Configuração salva neste dispositivo.")}catch(e){toast(e.message,true)}
+try{await api("/settings",{method:"POST",body:JSON.stringify(o)});settings=o;toast("Configuração salva com segurança no servidor.")}catch(e){toast(e.message,true)}
 }
 
-initializeUI();
-document.documentElement.classList.add("enf-authenticated");
-refresh().then(()=>{
- ready=true;
- historyPatient="";
- page("patients");
- toast("Sem login: dados salvos somente neste dispositivo. Faça backups regularmente.");
-}).catch(e=>toast("Não foi possível abrir os dados locais: "+e.message,true));
+window.ENF_APP={
+ start:async()=>{initializeUI();await refresh();ready=true;historyPatient="";page("patients");},
+ refresh,
+ getLegacy:()=>store,
+ importLegacy:async()=>{const p=store.patients||[],v=store.visits||[];if(!p.length&&!v.length)return {patients:0,visits:0};const result=await api("/migrate",{method:"POST",body:JSON.stringify({patients:p,visits:v})});await refresh();return result;},
+ getSnapshot:()=>({patients,visits:rows,settings})
+};
 })();
