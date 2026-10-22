@@ -144,13 +144,55 @@ selected=p.id;el("patientSelect").value=p.id;currentId=null;
 for(const [k,v] of Object.entries({name:p.name,birth:p.birth,record:p.record,age:age(p.birth),location:p.location||"",informant:p.informant||""}))el(k).value=v;
 }
 function visitData(){const p=getPatient(selected);if(!p)throw Error("Selecione um paciente cadastrado.");const v=values();if(!v.date)throw Error("Preencha a data do atendimento.");return v}
-function previewDraft(){try{const v=visitData();renderDoc(v);previewId=null;page("preview");toast("Prévia sem salvar; use Gerar modelo para registrar o atendimento.")}catch(e){toast(e.message,true)}}
+function cancelCorrection(goBack=false){
+ const wasEditing=!!editingVisitId;
+ editingVisitId="";editingRevision=0;
+ el("correctionBanner")?.classList.add("hidden");
+ el("correctionReason").value="";
+ el("patientSelect").disabled=false;
+ el("patientShortcut").disabled=false;
+ el("generate").textContent="Gerar modelo e salvar no histórico";
+ if(goBack&&wasEditing){historyPatient=selected;page("history")}
+}
+function startCorrection(visit){
+ cancelCorrection(false);
+ choosePatient(visit.patient_id,true);
+ fill(visit.value);
+ choosePatient(visit.patient_id,false);
+ editingVisitId=visit.id;editingRevision=visit.revision||1;
+ el("patientSelect").disabled=true;
+ el("patientShortcut").disabled=true;
+ el("correctionBanner").classList.remove("hidden");
+ el("correctionRevision").textContent="Versão "+editingRevision;
+ el("generate").textContent="Salvar correção do relatório";
+ page("form");
+ el("correctionBanner").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function previewDraft(){
+ try{
+  const v=visitData();renderDoc(v,editingVisitId?{revision:editingRevision,correctionDraft:true}:null);
+  previewId=null;page("preview");toast(editingVisitId?"Prévia da correção, ainda não salva.":"Prévia sem salvar; use Gerar modelo para registrar o atendimento.");
+ }catch(e){toast(e.message,true)}
+}
 async function generateSave(){
-if(busy)return;let v;try{v=visitData()}catch(e){toast(e.message,true);return}
-busy=true;el("generate").disabled=true;
-try{const d=await api("/visits",{method:"POST",body:JSON.stringify({patient_id:selected,value:v})});await refresh();previewId=d.id;renderDoc(d.visit.value);page("preview");toast("Visita salva no histórico do paciente.")}
-catch(e){toast("Não foi possível salvar: "+e.message,true)}
-finally{busy=false;el("generate").disabled=false}
+ if(busy)return;
+ let v;try{v=visitData()}catch(e){toast(e.message,true);return}
+ const editing=!!editingVisitId;
+ const reason=editing?el("correctionReason").value.trim():"";
+ if(editing&&reason.length<5){toast("Informe o motivo da correção com pelo menos 5 caracteres.",true);el("correctionReason").focus();return}
+ busy=true;el("generate").disabled=true;
+ try{
+  const endpoint=editing?"/visits/update":"/visits";
+  const payload=editing?{id:editingVisitId,expectedRevision:editingRevision,reason,value:v}:{patient_id:selected,value:v};
+  const d=await api(endpoint,{method:"POST",body:JSON.stringify(payload)});
+  await refresh();
+  previewId=d.id;
+  renderDoc(d.visit.value,d.visit);
+  if(editing)cancelCorrection(false);
+  page("preview");
+  toast(editing?"Correção salva na versão "+d.revision+". A versão anterior foi preservada.":"Atendimento salvo no histórico do paciente.");
+ }catch(e){toast("Não foi possível salvar: "+e.message,true)}
+ finally{busy=false;el("generate").disabled=false}
 }
 function renderHistory(){
 const root=el("historyList"),q=el("search").value.trim().toLowerCase();
@@ -170,7 +212,7 @@ async function historyEvent(ev){
 const b=ev.target.closest("button");if(!b)return;
 if(b.dataset.back){historyPatient="";renderHistory();return}
 if(b.dataset.patient){historyPatient=b.dataset.patient;renderHistory();return}
-if(b.dataset.new){choosePatient(b.dataset.new,true);page("form");return}
+if(b.dataset.new){cancelCorrection(false);choosePatient(b.dataset.new,true);page("form");return}
 if(b.dataset.remove){
  if(!canManageVisits)return;
  const visit=rows.find(x=>x.id===b.dataset.remove);if(!visit)return;
@@ -194,9 +236,34 @@ if(b.dataset.restore){
  return;
 }
 
-const id=b.dataset.localPreview||b.dataset.reuse,r=rows.find(x=>x.id===id);if(!r)return;
-if(b.dataset.localPreview){renderDoc(r.value);previewId=r.id;page("preview");return}
-choosePatient(r.patient_id,true);
+if(b.dataset.revisionPreview){
+ const [key,i]=b.dataset.revisionPreview.split("|");
+ const entry=revisionCache.get(key)?.[Number(i)];
+ if(!entry)return;
+ renderDoc(entry.value,{revision:entry.revision,historical:true,corrected_at:entry.changed_at});
+ page("preview");
+ return;
+}
+if(b.dataset.versionHistory){
+ const visitId=b.dataset.versionHistory;
+ const container=el("versionHistoryPanel");
+ if(container?.dataset.visit===visitId){container.remove();return}
+ try{
+  b.disabled=true;
+  const response=await api("/visits/revisions?id="+encodeURIComponent(visitId));
+  revisionCache.set(visitId,response.history||[]);
+  el("versionHistoryPanel")?.remove();
+  const panel=document.createElement("div");panel.id="versionHistoryPanel";panel.className="card revision-history";panel.dataset.visit=visitId;
+  panel.innerHTML='<h3>Histórico de correções</h3><p class="muted">As versões anteriores são preservadas para consulta. O relatório ativo permanece na versão '+E(response.revision)+'.</p>'+(response.history.length?response.history.map((item,index)=>'<div class="revision-row"><div><strong>Versão '+E(item.revision)+'</strong><small>Substituída em '+E(new Date(item.changed_at).toLocaleString("pt-BR"))+' por '+E(item.edited_by)+'</small><small>Motivo: '+E(item.reason)+'</small></div><button class="light" type="button" data-revision-preview="'+E(visitId)+'|'+index+'">Ver versão</button></div>').join(""):'<p>Nenhuma correção registrada.</p>');
+  root.appendChild(panel);panel.scrollIntoView({behavior:"smooth",block:"nearest"});
+ }catch(e){alert("Não foi possível consultar as versões: "+e.message)}
+ finally{b.disabled=false}
+ return;
+}
+const id=b.dataset.localPreview||b.dataset.reuse||b.dataset.editVisit,r=rows.find(x=>x.id===id);if(!r)return;
+if(b.dataset.editVisit){startCorrection(r);return}
+if(b.dataset.localPreview){renderDoc(r.value,r);previewId=r.id;page("preview");return}
+cancelCorrection(false);choosePatient(r.patient_id,true);
 fill(r.value);choosePatient(r.patient_id,false);
 page("form");toast("Dados recuperados, incluindo as lesões e a escala de dor. Gerar modelo criará um novo atendimento, sem apagar o anterior.");
 }
