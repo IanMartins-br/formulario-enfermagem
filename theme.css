@@ -259,3 +259,23 @@ main{display:block!important;padding:0!important;margin:0!important;max-width:no
  .painad-domain{padding:11px}
  .painad-domain select{font-size:12px}
 }
+
+
+.patient-row{display:flex;align-items:center;gap:10px;padding:8px;margin-bottom:9px;border:1px solid #dbe6df;border-radius:13px;background:#fff}
+.patient-row .patient-card{flex:1;min-width:0;margin:0;border:0;box-shadow:none;text-align:left}
+.patient-edit-btn{font-size:12px;white-space:nowrap;padding:10px}
+.correction-banner{border:1px solid #a9cbbb;background:#f0f7f2}
+.correction-banner-head{display:flex;align-items:start;justify-content:space-between;gap:14px;margin-bottom:15px}
+.correction-banner-head strong{font-size:16px}
+.correction-banner-head p{font-size:12px;margin:5px 0}
+.correction-banner textarea{width:100%;min-height:75px}
+.revision-mark{white-space:nowrap;border-radius:20px;padding:7px 10px;background:#e1efe6;color:#195b42;font-size:11px;font-weight:750}
+.revision-label{font-size:11px;color:#567868}
+.revision-history{margin-top:15px;border:1px solid #dce9e1;background:#fafdfe}
+.revision-history h3{font-size:15px;text-transform:none;margin:0 0 10px}
+.revision-row{display:flex;gap:12px;justify-content:space-between;align-items:center;border-top:1px solid #e5ede8;padding:13px 0}
+.revision-row div{min-width:0;display:grid;gap:4px}
+.revision-row small{color:#627970;font-size:11px;overflow-wrap:anywhere}
+.revision-row button{white-space:nowrap}
+.doc-version-note{background:#f4f7f4;border:1px solid #dce8df;border-radius:8px;padding:8px 11px;font-size:11px;font-weight:750;color:#325c4d;margin:12px 0}
+@media(max-width:640px){.patient-row{flex-direction:column;align-items:stretch}.patient-edit-btn{width:100%}.correction-banner-head{flex-direction:column}.revision-row{align-items:stretch;flex-direction:column}.revision-row button{width:100%}}
