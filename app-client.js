@@ -39,7 +39,7 @@ function persistLocal(){
  catch(e){throw Error("Armazenamento do dispositivo cheio ou indisponível. Exporte um backup.")};
 }
 const api=async(path,opts={})=>{const r=await fetch("/api"+path,{credentials:"same-origin",cache:"no-store",headers:{"content-type":"application/json"},...opts});let j;try{j=await r.json()}catch(e){throw Error("Resposta inválida do servidor.")}if(!r.ok)throw Error(j.error||"Falha de comunicação");return j};
-let patients=[],selected="",historyPatient="",busy=false,ready=false,canManageVisits=false,archivedRows=[];
+let patients=[],selected="",historyPatient="",busy=false,ready=false,canManageVisits=false,archivedRows=[],editingVisitId="",editingRevision=0,revisionCache=new Map();
 const getPatient=id=>patients.find(p=>p.id===id);
 const age=s=>{if(!s)return"";const d=new Date(s+"T12:00:00"),n=new Date();let a=n.getFullYear()-d.getFullYear();if(n.getMonth()<d.getMonth()||(n.getMonth()===d.getMonth()&&n.getDate()<d.getDate()))a--;return a>=0?a:""};
 function toast(msg,error=false){const t=document.createElement("div");t.className="status-banner";t.textContent=msg;if(error){t.style.background="#fff1ed";t.style.color="#9a4234";t.style.borderColor="#e5b8a8"}document.querySelector("main section").prepend(t);setTimeout(()=>t.remove(),6000)}
@@ -51,12 +51,24 @@ el("historyPage").before(pane);
 const picker=document.createElement("div");picker.id="patientPicker";picker.className="card noprint";
 picker.innerHTML='<h2>Paciente deste atendimento</h2><div class="patient-toolbar"><div class="field"><label>Selecionar paciente cadastrado *</label><select id="patientSelect"><option value="">Selecione...</option></select></div><button type="button" class="light" id="patientShortcut">+ Cadastrar</button></div><p class="muted">Nome, nascimento, idade e prontuário são preenchidos automaticamente.</p>';
 el("recordForm").before(picker);
+const correction=document.createElement("div");
+correction.id="correctionBanner";
+correction.className="card correction-banner hidden noprint";
+correction.innerHTML='<div class="correction-banner-head"><div><strong>Corrigir relatório salvo</strong><p class="muted">Você está editando a versão existente, sem criar um novo atendimento. A versão anterior será preservada.</p></div><span id="correctionRevision" class="revision-mark"></span></div><div class="field"><label for="correctionReason">Motivo da correção *</label><textarea id="correctionReason" maxlength="500" rows="2" placeholder="Ex.: corrigido valor digitado incorretamente na avaliação clínica"></textarea></div><div class="actions"><button type="button" class="light" id="cancelCorrection">Cancelar edição</button></div>';
+el("recordForm").before(correction);
+el("cancelCorrection").onclick=()=>cancelCorrection();
+
 for(const id of ["name","birth","record","age"])el(id).readOnly=true;
 el("addPatient").onclick=()=>editPatient();
 el("cancelPatient").onclick=()=>el("patientEditor").classList.add("hidden");
 el("patientShortcut").onclick=()=>editPatient();
 el("patientSearch").oninput=renderPatientList;
-el("patientList").onclick=e=>{const b=e.target.closest("[data-id]");if(b){historyPatient=b.dataset.id;page("history")}};
+el("patientList").onclick=e=>{
+ const editor=e.target.closest("[data-edit-patient]");
+ if(editor){const p=getPatient(editor.dataset.editPatient);if(p)editPatient(p);return}
+ const b=e.target.closest("[data-id]");
+ if(b){historyPatient=b.dataset.id;page("history")}
+};
 el("patientForm").onsubmit=savePatient;
 el("peWhatsapp").addEventListener("input",e=>{const d=e.target.value.replace(/\D/g,"").slice(0,11);e.target.value=d.length<=2?"("+d:d.length<=7?"("+d.slice(0,2)+") "+d.slice(2):"("+d.slice(0,2)+") "+d.slice(2,7)+"-"+d.slice(7)});
 el("patientSelect").onchange=()=>choosePatient(el("patientSelect").value,true);
@@ -72,7 +84,7 @@ el("generate").onclick=generateSave;
 el("print").textContent="Visualizar prévia";
 el("print").onclick=previewDraft;
 el("printPreview").textContent="Salvar como PDF";
-el("clearBtn").onclick=()=>{if(!confirm("Começar novo atendimento? Os dados não salvos serão descartados."))return;el("recordForm").reset();window.resetClinicalAssessment?.();el("date").value=new Date().toLocaleDateString("en-CA");choosePatient(selected,false)};
+el("clearBtn").onclick=()=>{if(!confirm("Começar novo atendimento? Os dados não salvos serão descartados."))return;cancelCorrection(false);el("recordForm").reset();window.resetClinicalAssessment?.();el("date").value=new Date().toLocaleDateString("en-CA");choosePatient(selected,false)};
 el("saveSettings").onclick=saveSettingsRemote;
 el("exportBackup").onclick=()=>{if(!ready)return;download("backup-enfermagem-"+new Date().toISOString().slice(0,10)+".json",JSON.stringify({patients,visits:rows,settings},null,2),"application/json")};
 el("importBtn").textContent="Importar backup JSON";
@@ -99,6 +111,8 @@ document.querySelector("header .tag").textContent="Acesso restrito";
 function editPatient(p){
 page("patients");el("patientEditor").classList.remove("hidden");
 el("patientForm").dataset.edit=p?.id||"";
+el("patientEditor").querySelector("h2").textContent=p?"Editar cadastro do paciente":"Cadastrar paciente";
+el("savePatient").textContent=p?"Salvar alterações":"Salvar paciente";
 el("peName").value=p?.name||"";el("peRecord").value=p?.record||"";el("peRecord").readOnly=!!p;el("peBirth").value=p?.birth||"";el("peLocation").value=p?.location||"";el("peInformant").value=p?.informant||"";el("peWhatsapp").value=p?.whatsapp||"";
 el("patientEditor").scrollIntoView({behavior:"smooth",block:"start"});
 }
@@ -106,12 +120,18 @@ async function savePatient(ev){
 ev.preventDefault();if(busy)return;
 const payload={id:el("patientForm").dataset.edit||undefined,name:el("peName").value.trim(),record:el("peRecord").value.trim(),birth:el("peBirth").value,location:el("peLocation").value.trim(),informant:el("peInformant").value.trim(),whatsapp:el("peWhatsapp").value.trim()};
 busy=true;el("savePatient").disabled=true;
-try{const d=await api("/patients",{method:"POST",body:JSON.stringify(payload)});await refresh();el("patientEditor").classList.add("hidden");selected=d.id;choosePatient(d.id,false);toast("Paciente cadastrado no banco de dados.");page("form")}
+try{
+ const editing=!!payload.id;
+ const d=await api("/patients",{method:"POST",body:JSON.stringify(payload)});
+ await refresh();el("patientEditor").classList.add("hidden");selected=d.id;choosePatient(d.id,false);
+ page(editing?"patients":"form");
+ toast(editing?"Cadastro do paciente atualizado. Relatórios anteriores permanecem preservados.":"Paciente cadastrado no banco de dados.");
+ }
 catch(e){toast(e.message,true)}finally{busy=false;el("savePatient").disabled=false}
 }
 function renderPatientList(){
 const q=el("patientSearch").value.trim().toLowerCase(),set=patients.filter(p=>(p.name+" "+p.record).toLowerCase().includes(q));
-el("patientList").innerHTML=set.length?set.map(p=>'<button class="patient-card" data-id="'+E(p.id)+'"><strong>'+E(p.name)+'</strong><small>Prontuário '+E(p.record)+' · Nascimento '+E(dateBR(p.birth))+'</small><small>'+rows.filter(r=>r.patient_id===p.id).length+' atendimentos</small></button>').join(""):'<div class="empty">Nenhum paciente cadastrado ou localizado.</div>';
+el("patientList").innerHTML=set.length?set.map(p=>'<div class="patient-row"><button class="patient-card" data-id="'+E(p.id)+'"><strong>'+E(p.name)+'</strong><small>Prontuário '+E(p.record)+' · Nascimento '+E(dateBR(p.birth))+'</small><small>'+rows.filter(r=>r.patient_id===p.id).length+' atendimentos</small></button><button type="button" class="light patient-edit-btn" data-edit-patient="'+E(p.id)+'">Editar cadastro</button></div>').join(""):'<div class="empty">Nenhum paciente cadastrado ou localizado.</div>';
 }
 function updatePicker(){
 el("patientSelect").innerHTML='<option value="">Selecione o paciente...</option>'+patients.map(p=>'<option value="'+E(p.id)+'">'+E(p.name)+' — '+E(p.record)+'</option>').join("");
