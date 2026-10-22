@@ -89,7 +89,13 @@ export async function onRequest({request,env}){
  if(path==="/api/patients"&&method==="GET"){const r=await db.prepare("SELECT id,record_number AS record,full_name AS name,birth_date AS birth,location,informant,phone_number AS whatsapp,created_at FROM patients ORDER BY full_name COLLATE NOCASE LIMIT 5000").all();return reply({patients:r.results})}
  if(path==="/api/patients"&&method==="POST"){const b=await input(request),name=clean(b.name,200),record=clean(b.record,80),birth=clean(b.birth,10),phone=clean(b.whatsapp,20);if(!name||!record||!/^\d{4}-\d{2}-\d{2}$/.test(birth))return reply({error:"Informe nome, número do prontuário e nascimento."},400);
  const rid=clean(b.id,64);const old=rid?await db.prepare("SELECT id FROM patients WHERE id=?").bind(rid).first():null;
- if(old){await db.prepare("UPDATE patients SET full_name=?,birth_date=?,location=?,informant=?,phone_number=? WHERE id=?").bind(name,birth,clean(b.location,200),clean(b.informant,160),phone,rid).run();await log(db,user.id,"patient_updated",rid);return reply({ok:true,id:rid,updated:true})}
+ if(old){
+ const dup=await db.prepare("SELECT id FROM patients WHERE record_number=? AND id<>?").bind(record,rid).first();
+ if(dup)return reply({error:"Esse número de prontuário já pertence a outro paciente."},409);
+ await db.prepare("UPDATE patients SET record_number=?,full_name=?,birth_date=?,location=?,informant=?,phone_number=? WHERE id=?").bind(record,name,birth,clean(b.location,200),clean(b.informant,160),phone,rid).run();
+ await log(db,user.id,"patient_updated",rid);
+ return reply({ok:true,id:rid,updated:true});
+}
  const dup=await db.prepare("SELECT id FROM patients WHERE record_number=?").bind(record).first();if(dup)return reply({error:"Número de prontuário já utilizado."},409);
  const nid=id();await db.prepare("INSERT INTO patients(id,record_number,full_name,birth_date,location,informant,phone_number) VALUES(?,?,?,?,?,?,?)").bind(nid,record,name,birth,clean(b.location,200),clean(b.informant,160),phone).run();await log(db,user.id,"patient_created",nid);return reply({ok:true,id:nid});
  }
