@@ -48,6 +48,7 @@ const nav=el("nav"),button=document.createElement("button");button.dataset.page=
 const pane=document.createElement("div");pane.id="patientsPage";pane.className="hidden noprint";
 pane.innerHTML='<div class="topline"><div><h1>Pacientes</h1><p class="muted">Cadastre uma única vez e acompanhe os atendimentos.</p></div><button id="addPatient">+ Cadastrar paciente</button></div><div class="card"><div class="field"><label>Buscar paciente</label><input id="patientSearch" placeholder="Nome ou prontuário"></div><div class="patient-list" id="patientList" style="margin-top:15px"></div></div><div class="card hidden" id="patientEditor"><h2>Cadastro do paciente</h2><form id="patientForm"><div class="grid"><div class="field wide"><label>Nome completo *</label><input id="peName" maxlength="200" required></div><div class="field"><label>Nº do prontuário *</label><input id="peRecord" maxlength="80" required></div><div class="field"><label>Data de nascimento *</label><input type="date" id="peBirth" required></div><div class="field"><label>Local de atendimento</label><input id="peLocation"></div><div class="field"><label>Informante habitual</label><input id="peInformant"></div><div class="field"><label>WhatsApp do paciente (opcional)</label><input id="peWhatsapp" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="(31) 99999-9999"></div></div><div class="actions"><button type="submit" id="savePatient">Salvar paciente</button><button type="button" class="light" id="cancelPatient">Cancelar</button></div></form></div>';
 el("historyPage").before(pane);
+el("patientEditor").querySelector("h2").insertAdjacentHTML("afterend",'<p id="patientEditorNotice" class="muted patient-editor-note"></p>');
 const picker=document.createElement("div");picker.id="patientPicker";picker.className="card noprint";
 picker.innerHTML='<h2>Paciente deste atendimento</h2><div class="patient-toolbar"><div class="field"><label>Selecionar paciente cadastrado *</label><select id="patientSelect"><option value="">Selecione...</option></select></div><button type="button" class="light" id="patientShortcut">+ Cadastrar</button></div><p class="muted">Nome, nascimento, idade e prontuário são preenchidos automaticamente.</p>';
 el("recordForm").before(picker);
@@ -113,7 +114,8 @@ page("patients");el("patientEditor").classList.remove("hidden");
 el("patientForm").dataset.edit=p?.id||"";
 el("patientEditor").querySelector("h2").textContent=p?"Editar cadastro do paciente":"Cadastrar paciente";
 el("savePatient").textContent=p?"Salvar alterações":"Salvar paciente";
-el("peName").value=p?.name||"";el("peRecord").value=p?.record||"";el("peRecord").readOnly=!!p;el("peBirth").value=p?.birth||"";el("peLocation").value=p?.location||"";el("peInformant").value=p?.informant||"";el("peWhatsapp").value=p?.whatsapp||"";
+el("patientEditorNotice").textContent=p?"Corrigir o cadastro não modifica automaticamente relatórios antigos. Para corrigir um relatório emitido, use Editar relatório no Histórico.":"O número do prontuário deve ser único para cada paciente.";
+el("peName").value=p?.name||"";el("peRecord").value=p?.record||"";el("peRecord").readOnly=false;el("peBirth").value=p?.birth||"";el("peLocation").value=p?.location||"";el("peInformant").value=p?.informant||"";el("peWhatsapp").value=p?.whatsapp||"";
 el("patientEditor").scrollIntoView({behavior:"smooth",block:"start"});
 }
 async function savePatient(ev){
