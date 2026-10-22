@@ -207,3 +207,55 @@ main{display:block!important;padding:0!important;margin:0!important;max-width:no
 .archived-record{background:#fcfaf9;opacity:.95}
 .archived-record small{max-width:600px;overflow-wrap:anywhere;white-space:normal}
 @media(max-width:640px){.site-footer{padding:12px 16px 30px}.record-item .actions{width:100%}.record-item .actions button{flex:1 1 auto;min-width:0}}
+
+/* Avaliação individual de lesões e escalas de dor EVA/PAINAD */
+.legacy-clinical-hidden{display:none!important}
+.wound-intro{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0 18px;flex-wrap:wrap}
+.wound-intro p{margin:0;max-width:640px;font-size:13px}
+.wound-count{font-size:11px;white-space:nowrap;font-weight:750;color:#1b6952;padding:7px 10px;border-radius:20px;background:#eaf4ef}
+.wounds-list{display:grid;gap:16px;margin-top:10px}
+.wound-card{border:1px solid #d8e5df;border-radius:16px;background:#fbfcfb;overflow:hidden;box-shadow:0 5px 20px #123a312b}
+.wound-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px 16px;border-bottom:1px solid #e4ece7;background:#f0f6f2}
+.wound-kicker{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#568372;font-weight:750}
+.wound-title{font-size:18px;letter-spacing:-.45px;color:#1c4f40;margin:4px 0 0;line-height:1.2}
+.wound-remove{background:#fff7f5;border:1px solid #edcec9;color:#a5433c;font-size:12px;padding:9px 11px;border-radius:9px}
+.wound-remove:hover{background:#fce8e4}
+.wound-card-grid{padding:20px;gap:14px}
+.wound-card-grid textarea{min-height:74px;resize:vertical}
+.wound-add{margin-top:18px;display:inline-flex;align-items:center;justify-content:center;background:#eaf4ee;color:#165d45;border:1px solid #cce3d6;font-size:13px;min-height:44px}
+.pain-assessment{margin:24px 0 4px;padding:23px;border:1px solid #d9e6df;border-radius:16px;background:linear-gradient(130deg,#f8fbf9,#f0f6f3)}
+.pain-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:0 0 15px}
+.pain-heading h3{margin:0;font-size:14px;letter-spacing:0;text-transform:none;color:#1b4c3d}
+.clinical-hint{font-size:11px;color:#5d7970;line-height:1.45}
+.pain-assessment select{width:100%;max-width:100%}
+.pain-pane{margin-top:18px;padding-top:16px;border-top:1px solid #dce8e1}
+.pain-pane p.muted{font-size:12px;margin:0 0 16px;line-height:1.55}
+.pain-score-row{display:flex;align-items:baseline;gap:5px;margin:12px 0 13px}
+.pain-score-row strong{font-size:36px;font-weight:760;letter-spacing:-1.6px;color:#176149;font-variant-numeric:tabular-nums;line-height:1}
+.pain-score-row >span:nth-child(2){font-size:17px;color:#82928a}
+.pain-state{margin-left:auto;padding:7px 10px;border-radius:9px;background:#e4f1e9;color:#1d644c;font-size:12px;font-weight:750;max-width:50%;text-align:right}
+.pain-slider{display:block;width:100%;height:8px;border-radius:20px;margin:14px 0 10px;padding:0;appearance:none;-webkit-appearance:none;background:linear-gradient(90deg,#1d8b65 0%,#1d8b65 var(--pain-percent,0%),#d9e4dc var(--pain-percent,0%),#d9e4dc 100%);outline:none;cursor:pointer}
+.pain-slider::-webkit-slider-thumb{-webkit-appearance:none;width:25px;height:25px;border-radius:50%;background:#fff;border:6px solid #208461;box-shadow:0 2px 10px #143e3533}
+.pain-slider::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:#fff;border:6px solid #208461;box-shadow:0 2px 10px #143e3533}
+.pain-slider:disabled{opacity:1;cursor:default}
+.pain-slider:disabled::-webkit-slider-thumb{border-color:#207b5c}
+.pain-range-labels{display:flex;align-items:start;justify-content:space-between;gap:10px;color:#688073;font-size:11px;line-height:1.4}
+.pain-range-labels span:last-child{text-align:right}
+.painad-fields{display:grid;gap:11px}
+.painad-domain{background:white;padding:13px 14px;border:1px solid #dfebe3;border-radius:11px}
+.painad-domain label{display:flex;justify-content:space-between;gap:8px;margin-bottom:9px;font-weight:750;color:#234e3f}
+.painad-domain label span{font-size:10px;font-weight:500;white-space:nowrap;color:#698576}
+.painad-domain select{width:100%;font-size:12px;line-height:1.55;white-space:normal;min-height:43px;padding:9px 10px}
+.pain-total{padding:17px;border:1px solid #cfe6d8;border-radius:12px;margin-top:18px;background:#eff8f2}
+.pain-total .pain-score-row{margin-top:1px}
+.pain-total .clinical-hint{margin-top:14px;display:block}
+@media(max-width:640px){
+ .wound-card-head{padding:15px 14px;align-items:center}
+ .wound-card-grid{padding:14px;grid-template-columns:minmax(0,1fr)}
+ .wound-remove{font-size:11px;padding:8px}
+ .pain-assessment{padding:16px;margin-top:17px}
+ .pain-score-row strong{font-size:32px}
+ .pain-state{font-size:11px}
+ .painad-domain{padding:11px}
+ .painad-domain select{font-size:12px}
+}
