@@ -34,7 +34,28 @@ return reply({ok:true,user:{id:user.id,username:user.username,name:user.display_
 }
 const deny=()=>reply({error:"Acesso não autorizado. Faça login."},401);
 const forbidden=()=>reply({error:"Ação permitida somente ao administrador."},403);
-const docSafe=v=>{let output={};for(const [k,x] of Object.entries(v)){if(k==="__proto__"||k==="constructor"||k==="prototype")continue;if(typeof x==="string")output[k]=x.slice(0,8000);else if(typeof x==="boolean")output[k]=x}return output};
+const docSafe=v=>{
+ let output={};
+ const woundKeys=["woundLocation","woundSize","woundBed","woundExudate","woundCare"];
+ const painadKeys=["respiration","vocalization","face","body","consolability"];
+ for(const [k,x] of Object.entries(v)){
+  if(k==="__proto__"||k==="constructor"||k==="prototype")continue;
+  if(k==="wounds"&&Array.isArray(x)){
+   output.wounds=x.slice(0,30).map(w=>{
+    const item={};
+    if(w&&typeof w==="object"&&!Array.isArray(w))for(const key of woundKeys)item[key]=clean(w[key],3000);
+    return item;
+   });
+  }else if(k==="painadScores"&&x&&typeof x==="object"&&!Array.isArray(x)){
+   const item={};for(const key of painadKeys){
+    const n=x[key];if(Number.isInteger(n)&&n>=0&&n<=2)item[key]=n;
+   }
+   output.painadScores=item;
+  }else if(typeof x==="string")output[k]=x.slice(0,8000);
+  else if(typeof x==="boolean")output[k]=x;
+ }
+ return output;
+};
 export async function onRequest({request,env}){
  const path=new URL(request.url).pathname.replace(/\/$/,""),method=request.method;
  if(!env.DB||!env.APP_SETUP_KEY)return reply({error:"Configuração segura de banco/autenticação ausente."},503);
