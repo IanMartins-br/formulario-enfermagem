@@ -255,7 +255,7 @@ if(b.dataset.versionHistory){
   el("versionHistoryPanel")?.remove();
   const panel=document.createElement("div");panel.id="versionHistoryPanel";panel.className="card revision-history";panel.dataset.visit=visitId;
   panel.innerHTML='<h3>Histórico de correções</h3><p class="muted">As versões anteriores são preservadas para consulta. O relatório ativo permanece na versão '+E(response.revision)+'.</p>'+(response.history.length?response.history.map((item,index)=>'<div class="revision-row"><div><strong>Versão '+E(item.revision)+'</strong><small>Substituída em '+E(new Date(item.changed_at).toLocaleString("pt-BR"))+' por '+E(item.edited_by)+'</small><small>Motivo: '+E(item.reason)+'</small></div><button class="light" type="button" data-revision-preview="'+E(visitId)+'|'+index+'">Ver versão</button></div>').join(""):'<p>Nenhuma correção registrada.</p>');
-  root.appendChild(panel);panel.scrollIntoView({behavior:"smooth",block:"nearest"});
+  el("historyList").appendChild(panel);panel.scrollIntoView({behavior:"smooth",block:"nearest"});
  }catch(e){alert("Não foi possível consultar as versões: "+e.message)}
  finally{b.disabled=false}
  return;
