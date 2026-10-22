@@ -72,7 +72,7 @@ el("generate").onclick=generateSave;
 el("print").textContent="Visualizar prévia";
 el("print").onclick=previewDraft;
 el("printPreview").textContent="Salvar como PDF";
-el("clearBtn").onclick=()=>{if(!confirm("Começar novo atendimento? Os dados não salvos serão descartados."))return;el("recordForm").reset();el("date").value=new Date().toLocaleDateString("en-CA");choosePatient(selected,false);el("lesions").checked=false;toggleWounds()};
+el("clearBtn").onclick=()=>{if(!confirm("Começar novo atendimento? Os dados não salvos serão descartados."))return;el("recordForm").reset();window.resetClinicalAssessment?.();el("date").value=new Date().toLocaleDateString("en-CA");choosePatient(selected,false)};
 el("saveSettings").onclick=saveSettingsRemote;
 el("exportBackup").onclick=()=>{if(!ready)return;download("backup-enfermagem-"+new Date().toISOString().slice(0,10)+".json",JSON.stringify({patients,visits:rows,settings},null,2),"application/json")};
 el("importBtn").textContent="Importar backup JSON";
@@ -119,7 +119,7 @@ if(getPatient(selected))el("patientSelect").value=selected;
 }
 function choosePatient(id,reset){
 const p=getPatient(id);if(!p){selected="";el("patientSelect").value="";return}
-if(reset){const date=el("date").value;el("recordForm").reset();el("date").value=date||new Date().toLocaleDateString("en-CA");el("lesions").checked=false;toggleWounds()}
+if(reset){const date=el("date").value;el("recordForm").reset();window.resetClinicalAssessment?.();el("date").value=date||new Date().toLocaleDateString("en-CA")}
 selected=p.id;el("patientSelect").value=p.id;currentId=null;
 for(const [k,v] of Object.entries({name:p.name,birth:p.birth,record:p.record,age:age(p.birth),location:p.location||"",informant:p.informant||""}))el(k).value=v;
 }
@@ -177,8 +177,8 @@ if(b.dataset.restore){
 const id=b.dataset.localPreview||b.dataset.reuse,r=rows.find(x=>x.id===id);if(!r)return;
 if(b.dataset.localPreview){renderDoc(r.value);previewId=r.id;page("preview");return}
 choosePatient(r.patient_id,true);
-for(const [k,v] of Object.entries(r.value)){const f=el(k);if(!f||["name","birth","record","age"].includes(k))continue;if(f.type==="checkbox")f.checked=!!v;else if("value" in f)f.value=String(v??"")}
-toggleWounds();page("form");toast("Dados recuperados. Gerar modelo criará novo atendimento, sem apagar o anterior.");
+fill(r.value);choosePatient(r.patient_id,false);
+page("form");toast("Dados recuperados, incluindo as lesões e a escala de dor. Gerar modelo criará um novo atendimento, sem apagar o anterior.");
 }
 function renderProfessionalDoc(v){
 const info=[["Paciente",v.name],["Prontuário",v.record],["Nascimento",dateBR(v.birth)],["Idade",v.age?v.age+" anos":""],["Data da visita",dateBR(v.date)],["Local",v.location],["Informante",v.informant]];
