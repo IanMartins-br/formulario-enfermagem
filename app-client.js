@@ -229,6 +229,12 @@ async function generateSave(){
   previewId=d.id;previewReturn="form";
   renderDoc(d.visit.value,d.visit);
   if(editing)cancelCorrection(false);
+  else{
+   // A primeira consulta agora existe no banco: a próxima visita muda automaticamente.
+   el("recordForm").reset();window.resetClinicalAssessment?.();
+   el("date").value=new Date().toLocaleDateString("en-CA");
+   choosePatient(selected,false);
+  }
   page("preview");
   toast(editing?"Correção salva na versão "+d.revision+". A versão anterior foi preservada.":"Atendimento salvo no histórico do paciente.");
  }catch(e){toast("Não foi possível salvar: "+e.message,true)}
@@ -240,7 +246,7 @@ if(!historyPatient){const set=patients.filter(p=>(p.name+" "+p.record).toLowerCa
 const p=getPatient(historyPatient);if(!p){historyPatient="";renderHistory();return}
 const list=rows.filter(r=>r.patient_id===historyPatient).sort((a,b)=>String(b.value.date).localeCompare(String(a.value.date))||String(b.created).localeCompare(String(a.created)));
 let byDate={};for(const r of list){const date=r.value.date||"Sem data";(byDate[date]??=[]).push(r)}
-root.innerHTML='<button class="light" data-back="1">← Todos os pacientes</button><h2 style="margin-top:18px">'+E(p.name)+'</h2><p class="muted">Prontuário '+E(p.record)+' · '+list.length+' visitas</p><div class="actions"><button class="secondary" data-new="'+E(p.id)+'">+ Nova visita</button>'+(list.length?'<button class="light" data-full-pdf="'+E(p.id)+'">Baixar histórico completo (PDF)</button>':'')+'</div>'+(list.length?Object.entries(byDate).map(([d,recs])=>'<div class="history-group-header">'+E(dateBR(d))+'</div>'+recs.map((r,i)=>'<div class="record-item"><div><strong>'+(isEvolution(r.value)?"Evolução de enfermagem":"Atendimento completo")+'</strong><small>Registro em '+E(new Date(r.created||Date.now()).toLocaleString("pt-BR"))+'</small><small class="revision-label">Versão '+E(r.revision||1)+(r.corrected_at?' · Corrigido em '+E(new Date(r.corrected_at).toLocaleString("pt-BR")):'')+'</small></div><div class="actions"><button class="light" data-local-preview="'+E(r.id)+'">Prévia / PDF</button><button class="secondary" data-edit-visit="'+E(r.id)+'">Editar relatório</button><button class="light" data-reuse="'+E(r.id)+'">Reutilizar</button>'+(Number(r.revision)>1?'<button class="light" data-version-history="'+E(r.id)+'">Versões anteriores</button>':'')+(canManageVisits?'<button class="light visit-delete-btn" data-remove="'+E(r.id)+'" title="Retirar atendimento lançado por engano">Excluir</button>':'')+'</div></div>').join("")).join(""):'<div class="empty">Nenhuma visita registrada para este paciente.</div>');
+root.innerHTML='<button class="light" data-back="1">← Todos os pacientes</button><h2 style="margin-top:18px">'+E(p.name)+'</h2><p class="muted">Prontuário '+E(p.record)+' · '+list.length+' visitas</p><div class="actions"><button class="secondary" data-new="'+E(p.id)+'">+ Nova visita</button>'+(list.length?'<button class="light" data-full-pdf="'+E(p.id)+'">Baixar histórico completo (PDF)</button>':'')+'</div>'+(list.length?Object.entries(byDate).map(([d,recs])=>'<div class="history-group-header">'+E(dateBR(d))+'</div>'+recs.map((r,i)=>'<div class="record-item"><div><strong>'+(isEvolution(r.value)?"Evolução de enfermagem":"Atendimento completo")+'</strong><small>Registro em '+E(new Date(r.created||Date.now()).toLocaleString("pt-BR"))+'</small><small class="revision-label">Versão '+E(r.revision||1)+(r.corrected_at?' · Corrigido em '+E(new Date(r.corrected_at).toLocaleString("pt-BR")):'')+'</small></div><div class="actions"><button class="light" data-local-preview="'+E(r.id)+'">Prévia / PDF</button><button class="secondary" data-edit-visit="'+E(r.id)+'">Editar relatório</button><button class="light" data-reuse="'+E(r.id)+'">Nova evolução</button>'+(Number(r.revision)>1?'<button class="light" data-version-history="'+E(r.id)+'">Versões anteriores</button>':'')+(canManageVisits?'<button class="light visit-delete-btn" data-remove="'+E(r.id)+'" title="Retirar atendimento lançado por engano">Excluir</button>':'')+'</div></div>').join("")).join(""):'<div class="empty">Nenhuma visita registrada para este paciente.</div>');
  if(canManageVisits){
   const archived=archivedRows.filter(v=>v.patient_id===historyPatient);
   if(archived.length){
