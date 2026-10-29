@@ -40,6 +40,19 @@ function persistLocal(){
 }
 const api=async(path,opts={})=>{const r=await fetch("/api"+path,{credentials:"same-origin",cache:"no-store",headers:{"content-type":"application/json"},...opts});let j;try{j=await r.json()}catch(e){throw Error("Resposta inválida do servidor.")}if(!r.ok)throw Error(j.error||"Falha de comunicação");return j};
 let patients=[],selected="",historyPatient="",busy=false,ready=false,canManageVisits=false,archivedRows=[],editingVisitId="",editingRevision=0,revisionCache=new Map();
+let visitMode="initial",previewReturn="form",initialVisitCards=[];
+const hasPreviousVisit=patientId=>rows.some(r=>r.patient_id===patientId);
+const isEvolution=v=>v?.visitType==="evolution";
+function setVisitMode(mode,stored=null){
+ visitMode=mode==="evolution"?"evolution":"initial";
+ const following=visitMode==="evolution";
+ initialVisitCards.forEach(card=>card.classList.toggle("hidden",following));
+ el("followupVisitCard")?.classList.toggle("hidden",!following);
+ if(el("followupProgress"))el("followupProgress").value=following?String(stored?.progress||""):"";
+ if(el("visitModeNote"))el("visitModeNote").textContent=following?"Paciente com atendimento anterior: preencha somente a data da nova visita e a evolução de enfermagem.":"Primeiro atendimento: preencha a avaliação clínica completa.";
+ if(el("formPage"))el("formPage").querySelector("h1").textContent=following?"Evolução de enfermagem":"Atendimento inicial de enfermagem";
+ if(el("generate"))el("generate").textContent=editingVisitId?"Salvar correção do relatório":following?"Salvar evolução no histórico":"Gerar modelo e salvar no histórico";
+}
 const getPatient=id=>patients.find(p=>p.id===id);
 const age=s=>{if(!s)return"";const d=new Date(s+"T12:00:00"),n=new Date();let a=n.getFullYear()-d.getFullYear();if(n.getMonth()<d.getMonth()||(n.getMonth()===d.getMonth()&&n.getDate()<d.getDate()))a--;return a>=0?a:""};
 function toast(msg,error=false){const t=document.createElement("div");t.className="status-banner";t.textContent=msg;if(error){t.style.background="#fff1ed";t.style.color="#9a4234";t.style.borderColor="#e5b8a8"}document.querySelector("main section").prepend(t);setTimeout(()=>t.remove(),6000)}
@@ -52,6 +65,14 @@ el("patientEditor").querySelector("h2").insertAdjacentHTML("afterend",'<p id="pa
 const picker=document.createElement("div");picker.id="patientPicker";picker.className="card noprint";
 picker.innerHTML='<h2>Paciente deste atendimento</h2><div class="patient-toolbar"><div class="field"><label>Selecionar paciente cadastrado *</label><select id="patientSelect"><option value="">Selecione...</option></select></div><button type="button" class="light" id="patientShortcut">+ Cadastrar</button></div><p class="muted">Nome, nascimento, idade e prontuário são preenchidos automaticamente.</p>';
 el("recordForm").before(picker);
+ picker.insertAdjacentHTML("beforeend",'<p id="visitModeNote" class="muted" aria-live="polite"></p>');
+ const firstCard=el("identity").closest(".card");
+ const evolutionCard=document.createElement("div");
+ evolutionCard.id="followupVisitCard";evolutionCard.className="card hidden";
+ evolutionCard.innerHTML='<h2>Evolução de enfermagem — visita subsequente</h2><p class="muted followup-hint">Registre a evolução observada e as condutas efetivamente realizadas nesta visita. O atendimento inicial e os registros anteriores permanecem arquivados.</p><div class="field"><label for="followupProgress">Evolução de enfermagem *</label><textarea id="followupProgress" maxlength="8000" rows="10" placeholder="Descreva a evolução de enfermagem desta visita..." required></textarea></div>';
+ firstCard.after(evolutionCard);
+ initialVisitCards=Array.from(el("recordForm").children).filter(node=>node.classList?.contains("card")&&node!==firstCard&&node!==evolutionCard);
+ for(const key of ["location","informant"])el(key).readOnly=true;
 const correction=document.createElement("div");
 correction.id="correctionBanner";
 correction.className="card correction-banner hidden noprint";
@@ -106,6 +127,8 @@ el("settingsPage").querySelector(".card:last-child").insertAdjacentHTML("beforee
 el("document").parentElement.classList.add("doc-preview-frame");
 el("previewPage").querySelector(".actions").insertAdjacentHTML("beforeend",'<span id="printNotice" class="muted">Prévia em A4, antes de gerar o arquivo PDF.</span>');
 el("back").textContent="← Voltar";
+ el("back").onclick=()=>{document.title="Enfermagem · Formulário clínico";page(previewReturn)};
+ el("nav").querySelector('[data-page="charts"]').style.display="none";
 el("nav").querySelectorAll("button").forEach(b=>{if(b.dataset.page==="form")b.textContent="✎ Atendimento";if(b.dataset.page==="history")b.textContent="▤ Histórico";if(b.dataset.page==="charts")b.textContent="▥ Gráficos";if(b.dataset.page==="settings")b.textContent="⚙ Ajustes"});
 document.querySelector("header .tag").textContent="Acesso restrito";
 }
@@ -140,12 +163,26 @@ el("patientSelect").innerHTML='<option value="">Selecione o paciente...</option>
 if(getPatient(selected))el("patientSelect").value=selected;
 }
 function choosePatient(id,reset){
-const p=getPatient(id);if(!p){selected="";el("patientSelect").value="";return}
+const p=getPatient(id);if(!p){selected="";el("patientSelect").value="";setVisitMode("initial");return}
 if(reset){const date=el("date").value;el("recordForm").reset();window.resetClinicalAssessment?.();el("date").value=date||new Date().toLocaleDateString("en-CA")}
 selected=p.id;el("patientSelect").value=p.id;currentId=null;
 for(const [k,v] of Object.entries({name:p.name,birth:p.birth,record:p.record,age:age(p.birth),location:p.location||"",informant:p.informant||""}))el(k).value=v;
+setVisitMode(hasPreviousVisit(p.id)?"evolution":"initial");
 }
-function visitData(){const p=getPatient(selected);if(!p)throw Error("Selecione um paciente cadastrado.");const v=values();if(!v.date)throw Error("Preencha a data do atendimento.");return v}
+function visitData(){
+ const p=getPatient(selected);if(!p)throw Error("Selecione um paciente cadastrado.");
+ if(visitMode==="evolution"){
+  const progress=el("followupProgress").value.trim(),date=el("date").value;
+  if(!date)throw Error("Preencha a data da visita.");
+  if(!progress)throw Error("Preencha a evolução de enfermagem desta visita.");
+  const original=editingVisitId?rows.find(r=>r.id===editingVisitId)?.value||{}:{};
+  return {...original,visitType:"evolution",name:p.name,record:p.record,birth:p.birth,age:String(age(p.birth)),location:p.location||"",informant:p.informant||"",date,progress};
+ }
+ const v=values();
+ if(!v.date)throw Error("Preencha a data do atendimento.");
+ const old=editingVisitId?rows.find(r=>r.id===editingVisitId)?.value||{}:{};
+ return {...old,...v,visitType:old.visitType||"initial"};
+}
 function cancelCorrection(goBack=false){
  const wasEditing=!!editingVisitId;
  editingVisitId="";editingRevision=0;
@@ -153,7 +190,7 @@ function cancelCorrection(goBack=false){
  el("correctionReason").value="";
  el("patientSelect").disabled=false;
  el("patientShortcut").disabled=false;
- el("generate").textContent="Gerar modelo e salvar no histórico";
+ setVisitMode(getPatient(selected)&&hasPreviousVisit(selected)?"evolution":"initial");
  if(goBack&&wasEditing){historyPatient=selected;page("history")}
 }
 function startCorrection(visit){
@@ -162,6 +199,7 @@ function startCorrection(visit){
  fill(visit.value);
  choosePatient(visit.patient_id,false);
  editingVisitId=visit.id;editingRevision=visit.revision||1;
+ setVisitMode(isEvolution(visit.value)?"evolution":"initial",visit.value);
  el("patientSelect").disabled=true;
  el("patientShortcut").disabled=true;
  el("correctionBanner").classList.remove("hidden");
@@ -172,7 +210,7 @@ function startCorrection(visit){
 }
 function previewDraft(){
  try{
-  const v=visitData();renderDoc(v,editingVisitId?{revision:editingRevision,correctionDraft:true}:null);
+  const v=visitData();previewReturn="form";renderDoc(v,editingVisitId?{revision:editingRevision,correctionDraft:true}:null);
   previewId=null;page("preview");toast(editingVisitId?"Prévia da correção, ainda não salva.":"Prévia sem salvar; use Gerar modelo para registrar o atendimento.");
  }catch(e){toast(e.message,true)}
 }
@@ -188,7 +226,7 @@ async function generateSave(){
   const payload=editing?{id:editingVisitId,expectedRevision:editingRevision,reason,value:v}:{patient_id:selected,value:v};
   const d=await api(endpoint,{method:"POST",body:JSON.stringify(payload)});
   await refresh();
-  previewId=d.id;
+  previewId=d.id;previewReturn="form";
   renderDoc(d.visit.value,d.visit);
   if(editing)cancelCorrection(false);
   page("preview");
