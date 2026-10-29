@@ -240,7 +240,7 @@ if(!historyPatient){const set=patients.filter(p=>(p.name+" "+p.record).toLowerCa
 const p=getPatient(historyPatient);if(!p){historyPatient="";renderHistory();return}
 const list=rows.filter(r=>r.patient_id===historyPatient).sort((a,b)=>String(b.value.date).localeCompare(String(a.value.date))||String(b.created).localeCompare(String(a.created)));
 let byDate={};for(const r of list){const date=r.value.date||"Sem data";(byDate[date]??=[]).push(r)}
-root.innerHTML='<button class="light" data-back="1">← Todos os pacientes</button><h2 style="margin-top:18px">'+E(p.name)+'</h2><p class="muted">Prontuário '+E(p.record)+' · '+list.length+' visitas</p><button class="secondary" data-new="'+E(p.id)+'">+ Novo atendimento</button>'+(list.length?Object.entries(byDate).map(([d,recs])=>'<div class="history-group-header">'+E(dateBR(d))+'</div>'+recs.map((r,i)=>'<div class="record-item"><div><strong>Atendimento '+(i+1)+'</strong><small>Registro em '+E(new Date(r.created||Date.now()).toLocaleString("pt-BR"))+'</small><small class="revision-label">Versão '+E(r.revision||1)+(r.corrected_at?' · Corrigido em '+E(new Date(r.corrected_at).toLocaleString("pt-BR")):'')+'</small></div><div class="actions"><button class="light" data-local-preview="'+E(r.id)+'">Prévia / PDF</button><button class="secondary" data-edit-visit="'+E(r.id)+'">Editar relatório</button><button class="light" data-reuse="'+E(r.id)+'">Reutilizar</button>'+(Number(r.revision)>1?'<button class="light" data-version-history="'+E(r.id)+'">Versões anteriores</button>':'')+(canManageVisits?'<button class="light visit-delete-btn" data-remove="'+E(r.id)+'" title="Retirar atendimento lançado por engano">Excluir</button>':'')+'</div></div>').join("")).join(""):'<div class="empty">Nenhuma visita registrada para este paciente.</div>');
+root.innerHTML='<button class="light" data-back="1">← Todos os pacientes</button><h2 style="margin-top:18px">'+E(p.name)+'</h2><p class="muted">Prontuário '+E(p.record)+' · '+list.length+' visitas</p><div class="actions"><button class="secondary" data-new="'+E(p.id)+'">+ Nova visita</button>'+(list.length?'<button class="light" data-full-pdf="'+E(p.id)+'">Baixar histórico completo (PDF)</button>':'')+'</div>'+(list.length?Object.entries(byDate).map(([d,recs])=>'<div class="history-group-header">'+E(dateBR(d))+'</div>'+recs.map((r,i)=>'<div class="record-item"><div><strong>'+(isEvolution(r.value)?"Evolução de enfermagem":"Atendimento completo")+'</strong><small>Registro em '+E(new Date(r.created||Date.now()).toLocaleString("pt-BR"))+'</small><small class="revision-label">Versão '+E(r.revision||1)+(r.corrected_at?' · Corrigido em '+E(new Date(r.corrected_at).toLocaleString("pt-BR")):'')+'</small></div><div class="actions"><button class="light" data-local-preview="'+E(r.id)+'">Prévia / PDF</button><button class="secondary" data-edit-visit="'+E(r.id)+'">Editar relatório</button><button class="light" data-reuse="'+E(r.id)+'">Reutilizar</button>'+(Number(r.revision)>1?'<button class="light" data-version-history="'+E(r.id)+'">Versões anteriores</button>':'')+(canManageVisits?'<button class="light visit-delete-btn" data-remove="'+E(r.id)+'" title="Retirar atendimento lançado por engano">Excluir</button>':'')+'</div></div>').join("")).join(""):'<div class="empty">Nenhuma visita registrada para este paciente.</div>');
  if(canManageVisits){
   const archived=archivedRows.filter(v=>v.patient_id===historyPatient);
   if(archived.length){
@@ -253,6 +253,12 @@ const b=ev.target.closest("button");if(!b)return;
 if(b.dataset.back){historyPatient="";renderHistory();return}
 if(b.dataset.patient){historyPatient=b.dataset.patient;renderHistory();return}
 if(b.dataset.new){cancelCorrection(false);choosePatient(b.dataset.new,true);page("form");return}
+if(b.dataset.fullPdf){
+ b.disabled=true;
+ try{await showCompleteHistory(b.dataset.fullPdf)}catch(err){toast("Não foi possível gerar o histórico: "+err.message,true)}
+ finally{b.disabled=false}
+ return;
+}
 if(b.dataset.remove){
  if(!canManageVisits)return;
  const visit=rows.find(x=>x.id===b.dataset.remove);if(!visit)return;
@@ -277,6 +283,7 @@ if(b.dataset.restore){
 }
 
 if(b.dataset.revisionPreview){
+ previewReturn="history";
  const [key,i]=b.dataset.revisionPreview.split("|");
  const entry=revisionCache.get(key)?.[Number(i)];
  if(!entry)return;
@@ -302,19 +309,46 @@ if(b.dataset.versionHistory){
 }
 const id=b.dataset.localPreview||b.dataset.reuse||b.dataset.editVisit,r=rows.find(x=>x.id===id);if(!r)return;
 if(b.dataset.editVisit){startCorrection(r);return}
-if(b.dataset.localPreview){renderDoc(r.value,r);previewId=r.id;page("preview");return}
+if(b.dataset.localPreview){previewReturn="history";renderDoc(r.value,r);previewId=r.id;page("preview");return}
 cancelCorrection(false);choosePatient(r.patient_id,true);
-fill(r.value);choosePatient(r.patient_id,false);
-page("form");toast("Dados recuperados, incluindo as lesões e a escala de dor. Gerar modelo criará um novo atendimento, sem apagar o anterior.");
+page("form");toast("Nova visita iniciada com dados do cadastro. A evolução anterior permanece preservada.");
 }
-function renderProfessionalDoc(v,metadata){
+function buildProfessionalDoc(v,metadata){
 const version=Number(metadata?.revision||1);
 const historyNote=metadata?.historical?"VERSÃO ANTERIOR — documento substituído":metadata?.correctionDraft?"PRÉVIA — correção ainda não salva":version>1?"RELATÓRIO CORRIGIDO — VERSÃO "+version:"";
 const reviewDate=metadata?.corrected_at?new Date(metadata.corrected_at).toLocaleString("pt-BR"):"";
 const info=[["Paciente",v.name],["Prontuário",v.record],["Nascimento",dateBR(v.birth)],["Idade",v.age?v.age+" anos":""],["Data da visita",dateBR(v.date)],["Local",v.location],["Informante",v.informant]];
 const data=info.map(([label,value])=>'<div><small>'+E(label)+'</small>'+E(value||"Não informado")+'</div>').join("");
-const content=generateText(v).filter(s=>s[0]!=="IDENTIFICAÇÃO"&&s[0]!=="RESPONSÁVEIS").map(([title,paragraphs])=>'<div class="doc-section"><h3>'+E(title)+'</h3>'+paragraphs.map(str=>{const t=String(str||""),pos=t.indexOf(": ");return pos>0&&pos<58?'<p><strong>'+E(t.slice(0,pos+1))+'</strong> '+E(t.slice(pos+2))+'</p>':'<p>'+E(t)+'</p>'}).join("")+'</div>').join("");
-el("document").innerHTML='<div class="doc-head"><div><div class="doc-brand">Assistência domiciliar · Enfermagem</div><h2>Relatório de Enfermagem</h2><p class="doc-subtitle">Avaliação, diagnóstico, planejamento e evolução</p></div><span class="doc-badge">REGISTRO CLÍNICO</span></div>'+(historyNote?'<p class="doc-version-note">'+E(historyNote)+(reviewDate?' · '+E(reviewDate):'')+'</p>':'')+'<div class="doc-patient-grid">'+data+'</div>'+content+'<div class="doc-signature"><div class="signature-columns"><div><div class="sig-line"></div><p><strong>'+E(settings.nurse||'[Nome completo da enfermeira]')+'</strong><br>Enfermeira · COREN-MG '+E(settings.coren||'[nº]')+'</p></div><div><div class="sig-line"></div><p><strong>'+E(settings.supervisor||'[Nome completo da supervisão]')+'</strong><br>Supervisão · Enfermeira · COREN-MG '+E(settings.superCoren||'[nº]')+'</p></div></div></div><div class="doc-footer">Documento para revisão e assinatura profissional. Campos ausentes não indicam achados normais.</div>';
+const content=(isEvolution(v)?[["EVOLUÇÃO DE ENFERMAGEM",[v.progress||"Não informado"]]]:generateText(v).filter(s=>s[0]!=="IDENTIFICAÇÃO"&&s[0]!=="RESPONSÁVEIS")).map(([title,paragraphs])=>'<div class="doc-section"><h3>'+E(title)+'</h3>'+paragraphs.map(str=>{const t=String(str||""),pos=t.indexOf(": ");return pos>0&&pos<58?'<p><strong>'+E(t.slice(0,pos+1))+'</strong> '+E(t.slice(pos+2))+'</p>':'<p>'+E(t)+'</p>'}).join("")+'</div>').join("");
+return '<div class="doc-head"><div><div class="doc-brand">Assistência domiciliar · Enfermagem</div><h2>'+(isEvolution(v)?"Evolução de Enfermagem":"Relatório de Enfermagem")+'</h2><p class="doc-subtitle">'+(isEvolution(v)?"Registro de visita subsequente":"Avaliação, diagnóstico, planejamento e evolução")+'</p></div><span class="doc-badge">REGISTRO CLÍNICO</span></div>'+(historyNote?'<p class="doc-version-note">'+E(historyNote)+(reviewDate?' · '+E(reviewDate):'')+'</p>':'')+'<div class="doc-patient-grid">'+data+'</div>'+content+'<div class="doc-signature"><div class="signature-columns"><div><div class="sig-line"></div><p><strong>'+E(settings.nurse||'[Nome completo da enfermeira]')+'</strong><br>Enfermeira · COREN-MG '+E(settings.coren||'[nº]')+'</p></div><div><div class="sig-line"></div><p><strong>'+E(settings.supervisor||'[Nome completo da supervisão]')+'</strong><br>Supervisão · Enfermeira · COREN-MG '+E(settings.superCoren||'[nº]')+'</p></div></div></div><div class="doc-footer">Documento para revisão e assinatura profissional. Campos ausentes não indicam achados normais.</div>';
+}
+function renderProfessionalDoc(v,metadata){
+ el("document").innerHTML=buildProfessionalDoc(v,metadata);
+ el("printPreview").textContent="Salvar como PDF";
+ el("printNotice").textContent="Prévia em A4. Use a impressão do navegador para salvar em PDF.";
+}
+async function showCompleteHistory(patientId){
+ const p=getPatient(patientId);if(!p)throw Error("Paciente não encontrado.");
+ // Consulta por paciente diretamente no banco: não depende dos registros de outros pacientes.
+ const response=await api("/visits?patient="+encodeURIComponent(patientId));
+ const list=(response.visits||[]).filter(r=>r.patient_id===patientId);
+ if(!list.length)throw Error("Nenhum registro para este paciente.");
+ if(list.length>=1500)throw Error("Histórico excede o limite de consulta. Contate o administrador para exportar todos os registros, sem omissões.");
+ list.sort((a,b)=>String(a.value?.date||"").localeCompare(String(b.value?.date||""))||String(a.created||"").localeCompare(String(b.created||"")));
+ const start=dateBR(list[0].value?.date),end=dateBR(list[list.length-1].value?.date);
+ const info=[["Paciente",p.name],["Prontuário",p.record],["Nascimento",dateBR(p.birth)],["Primeira visita",start],["Última visita",end],["Total de registros",String(list.length)]];
+ const cover='<div class="history-cover"><p class="history-overline">Prontuário de enfermagem</p><h2>Histórico completo de atendimentos</h2><p class="history-subtitle">Relatórios em ordem cronológica, do primeiro ao mais recente</p><p class="history-patient-name">'+E(p.name)+'</p><div class="history-facts">'+info.map(([title,value])=>'<div><small>'+E(title)+'</small>'+E(value||"Não informado")+'</div>').join("")+'</div><p class="history-export-note">Emissão: '+E(new Date().toLocaleString("pt-BR"))+' · Documento para conferência e assinatura profissional</p></div>';
+ const entries=list.map((item,i)=>{
+  const label=isEvolution(item.value)?"Evolução de enfermagem":"Atendimento completo";
+  const title='Registro '+String(i+1).padStart(2,"0")+' de '+list.length+' · '+label+' · '+dateBR(item.value?.date);
+  return '<div class="history-entry"><p class="history-entry-label">'+E(title)+'</p>'+buildProfessionalDoc(item.value,item)+'</div>';
+ }).join("");
+ el("document").innerHTML=cover+entries;
+ previewReturn="history";previewId=null;
+ el("printPreview").textContent="Salvar histórico completo em PDF";
+ el("printNotice").textContent="Contém "+list.length+" registros, da primeira à última visita. Selecione Salvar como PDF na impressão.";
+ document.title="Historico-Enfermagem-"+p.record.replace(/[^a-zA-Z0-9_-]/g,"-");
+ page("preview");
 }
 const previousPage=page;page=function(name){
 el("patientsPage").classList.toggle("hidden",name!=="patients");
