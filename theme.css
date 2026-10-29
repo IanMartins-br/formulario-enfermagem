@@ -279,3 +279,28 @@ main{display:block!important;padding:0!important;margin:0!important;max-width:no
 .revision-row button{white-space:nowrap}
 .doc-version-note{background:#f4f7f4;border:1px solid #dce8df;border-radius:8px;padding:8px 11px;font-size:11px;font-weight:750;color:#325c4d;margin:12px 0}
 @media(max-width:640px){.patient-row{flex-direction:column;align-items:stretch}.patient-edit-btn{width:100%}.correction-banner-head{flex-direction:column}.revision-row{align-items:stretch;flex-direction:column}.revision-row button{width:100%}}
+
+
+/* Fluxo de consulta inicial, evoluções e prontuário em PDF (sem tocar nos dados). */
+#nav button[data-page="charts"]{display:none!important}
+#followupVisitCard textarea{min-height:260px;line-height:1.65}
+#followupVisitCard .followup-hint{margin:-6px 0 17px}
+.history-cover{padding:42px 20px;text-align:center;font-family:Arial,sans-serif}
+.history-cover .history-overline{font-size:12px;color:#3b7862;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
+.history-cover h2{font-size:27px;line-height:1.2;text-align:center;margin:19px 0 8px}
+.history-cover .history-subtitle{font-size:13px;color:#627a6e;margin-bottom:27px}
+.history-cover .history-patient-name{font-size:19px;font-weight:750;margin-bottom:20px;overflow-wrap:anywhere}
+.history-cover .history-facts{display:grid;grid-template-columns:1fr 1fr;gap:13px;text-align:left;max-width:550px;margin:0 auto;border-top:2px solid #cdded4;padding-top:21px}
+.history-cover .history-facts div{font-size:13px;overflow-wrap:anywhere}
+.history-cover .history-facts small{display:block;color:#607b6d;font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}
+.history-cover .history-export-note{font-size:11px;color:#74847b;margin-top:45px}
+.history-entry-label{font:700 11px Arial,sans-serif;letter-spacing:.05em;color:#356a55;border-bottom:1px solid #d3e2d9;padding:0 0 10px;margin:0 0 19px}
+.history-entry .doc-head{margin-top:0}
+@media(max-width:780px){nav{grid-template-columns:repeat(4,minmax(0,1fr))}.history-cover{padding:22px 7px}.history-cover .history-facts{grid-template-columns:1fr 1fr}}
+@media print{
+ .history-cover{min-height:235mm;padding:35mm 12mm 15mm;break-after:page;page-break-after:always}
+ .history-entry+.history-entry{break-before:page;page-break-before:always}
+ .history-entry-label{break-after:avoid}
+ .history-entry .doc-head{break-inside:avoid}
+ .history-cover .history-facts{grid-template-columns:1fr 1fr}
+}
